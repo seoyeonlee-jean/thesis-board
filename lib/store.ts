@@ -11,6 +11,7 @@ type Store = BoardState & {
   requestApproval: (departmentId: string, professorId: string) => void;
   decideApplication: (applicationId: string, status: ApplicationStatus, feedback?: string) => boolean;
   reviewApplication: (applicationId: string, status: ReviewStatus, feedback?: string) => boolean;
+  assignCourseAdvisor: (studentId: string, departmentId: string, professorId: string) => void;
   setCapacity: (professorId: string, capacity: number) => boolean;
   reset: () => void;
 };
@@ -30,6 +31,10 @@ export const useBoardStore = create<Store>()(persist((set, get) => ({ ...createS
     if (!validFeedback(status, feedback)) return false;
     set((state) => ({ applications: state.applications.map((item) => item.id === applicationId ? { ...item, adminReview: status, feedback: feedback?.trim() || item.feedback } : item), histories: [...state.histories, history("행정실", `확정 검토를 ${status} 처리했습니다.`)] })); return true;
   },
+  assignCourseAdvisor: (studentId, departmentId, professorId) => set((state) => {
+    if (state.applications.some((item) => item.studentId === studentId && item.departmentId === departmentId)) return state;
+    return { applications: [...state.applications, { id: crypto.randomUUID(), studentId, departmentId, professorId, topic: "수업 배정 논문", plan: "수업 기반 배정", status: "승인", requestedAt: new Date().toISOString().slice(0, 10), adminReview: "검토 완료", stageIndex: 0 }], histories: [...state.histories, history("행정실", "수업 기반 지도교수 배정을 완료했습니다.")] };
+  }),
   setCapacity: (professorId, capacity) => { const professor = get().professors.find((item) => item.id === professorId); if (!professor || !canSetCapacity(professor, capacity)) return false; set((state) => ({ professors: state.professors.map((item) => item.id === professorId ? { ...item, capacity } : item), histories: [...state.histories, history("교수", "지도 정원을 변경했습니다.")] })); return true; },
   reset: () => set(createSeed())
 }), { name: "graduation-thesis-board" }));
