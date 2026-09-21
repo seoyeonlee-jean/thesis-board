@@ -2,8 +2,18 @@ import type { Application, ApplicationStatus, Department, Professor, ReviewStatu
 
 export const requiredRoadmaps = (student: Student, departments: Department[]) => student.selectedMajors.flatMap((major) => {
   const department = departments.find((item) => item.id === major.departmentId);
-  return department && department.requirements[major.role] === "필수" ? [{ department, role: major.role }] : [];
+  return department && department.requirements?.[major.role] === "필수" ? [{ department, role: major.role }] : [];
 });
+
+export const missingRequirementMajors = (student: Student, departments: Department[]) => student.selectedMajors.filter(major => {
+  const requirement = departments.find(d => d.id === major.departmentId)?.requirements?.[major.role];
+  return requirement !== "필수" && requirement !== "면제";
+});
+
+export const reviewNotice = (application: Pick<Application, "status" | "adminReview"> | undefined) => {
+  if (application?.status !== "승인" || application.adminReview === "검토 완료") return undefined;
+  return application.adminReview === "보완 요청" ? "행정실 보완 요청 확인" : "행정실 확정 검토 중";
+};
 
 export const canApply = (department: Department, professor: Professor) => !department.usesCapacity || (professor.available && (professor.capacity ?? 0) > professor.assigned);
 export const canApprove = (department: Department, professor: Professor) => !department.usesCapacity || (professor.capacity ?? 0) > professor.assigned;
@@ -21,7 +31,12 @@ export const nextTask = (student: Student, departments: Department[], applicatio
   const candidates = requiredRoadmaps(student, departments).map(({ department }) => {
     const application = applications.find((item) => item.studentId === student.id && item.departmentId === department.id);
     const stageIndex = stageForApplication(application);
-    return { department, stage: department.stages[stageIndex], stageIndex };
+    const notice = reviewNotice(application);
+    const original = department.stages[stageIndex];
+    const stage = notice ? { ...original, name: notice, description: application?.adminReview === "보완 요청"
+      ? "행정실 피드백을 확인하고 요청된 내용을 보완해 주세요."
+      : "교수 승인이 완료되었습니다. 행정실 확정 검토 결과를 기다려 주세요." } : original;
+    return { department, stage, stageIndex };
   });
   return candidates.sort((a, b) => a.stage.dueDate.localeCompare(b.stage.dueDate))[0];
 };

@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { departments } from '@/data/departments';
 import { createSeed } from '@/data/seed';
 import { useBoardStore } from '@/lib/store';
-import { stageForApplication, validFeedback } from '@/lib/rules';
+import { stageForApplication, validFeedback, nextTask, missingRequirementMajors } from '@/lib/rules';
 import { StudentBoard } from '@/components/student-board';
 
 // Render the selected test snapshot; Zustand SSR otherwise uses its initial seed.
@@ -30,18 +30,42 @@ it('감사: 정원 사용 학과만 승인 시 배정 인원 증가', () => {
     expect(p.assigned).toBe(before.find(b => b.id === p.id)!.assigned + (p.id === 'prof-soc-open' ? 1 : 0));
   }
 });
-it('감사: 교수 승인 직후 해당 전공만 다음 단계 이동', () => {
+it('감사: 교수 승인 직후 단계 유지 및 검토 중 다음 할 일 표시', () => {
   const s = useBoardStore.getState(); s.requestApproval('psychology', 'prof-psych');
+  s.selectMajors([{departmentId:'psychology',role:'primary'}, {departmentId:'mechanical',role:'secondary'}]);
   const a = useBoardStore.getState().applications.find(a => a.studentId === 'student-1')!;
   s.decideApplication(a.id, '승인');
-  expect(stageForApplication(useBoardStore.getState().applications.find(i => i.id === a.id))).toBe(1);
+  expect(stageForApplication(useBoardStore.getState().applications.find(i => i.id === a.id))).toBe(0);
   expect(stageForApplication(undefined)).toBe(0);
+  const state = useBoardStore.getState();
+  expect(nextTask(state.students[0], departments, state.applications)?.stage.name).toBe('행정실 확정 검토 중');
+  const html = renderToStaticMarkup(createElement(StudentBoard));
+  expect(html).toContain('신청 상태: 승인');
+  expect(html).toContain('행정실 확정 검토 중');
 });
 it('감사: 행정실 검토 완료 후 해당 전공 확정', () => {
   const s = useBoardStore.getState(); s.requestApproval('psychology', 'prof-psych');
   const a = useBoardStore.getState().applications.find(a => a.studentId === 'student-1')!;
   s.decideApplication(a.id, '승인'); s.reviewApplication(a.id, '검토 완료');
   expect(stageForApplication(useBoardStore.getState().applications.find(i => i.id === a.id))).toBe(1);
+  expect(stageForApplication(undefined)).toBe(0);
+});
+it('감사: 보완 요청을 검토 중으로 안내하지 않는다', () => {
+  const s = useBoardStore.getState();
+  s.selectMajors([{departmentId:'psychology',role:'primary'}]);
+  s.requestApproval('psychology','prof-psych');
+  const a = useBoardStore.getState().applications.find(a => a.studentId === 'student-1')!;
+  s.decideApplication(a.id,'승인'); s.reviewApplication(a.id,'보완 요청','서류 확인');
+  const state = useBoardStore.getState();
+  expect(nextTask(state.students[0],departments,state.applications)?.stage.name).toBe('행정실 보완 요청 확인');
+});
+it.each(['primary','secondary'] as const)('감사: %s 요건 누락과 면제를 구분한다', role => {
+  const d = structuredClone(departments[0]);
+  const student = {...createSeed().students[0],selectedMajors:[{departmentId:d.id,role}]};
+  d.requirements[role] = '' as never;
+  expect(missingRequirementMajors(student,[d])).toHaveLength(1);
+  d.requirements[role] = '면제';
+  expect(missingRequirementMajors(student,[d])).toHaveLength(0);
 });
 it.each(['officialLink', 'dueDate', 'requirement'])('감사: %s 누락 정보 확인 필요 렌더링', field => {
   const d = departments[0]; const original = structuredClone(d);

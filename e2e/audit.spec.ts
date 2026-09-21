@@ -27,8 +27,12 @@ for (const width of [1440, 390]) {
     const psych = page.locator('article').filter({has:page.getByRole('heading',{name:'심리학과',exact:true})});
     const mech = page.locator('article').filter({has:page.getByRole('heading',{name:'기계공학과',exact:true})});
     await expect(mech.getByText('졸업논문 수업 수강진행 필요')).toBeVisible();
-    // Soft assertion continues to verify administration even when this requirement fails.
-    await expect.soft(psych.getByText('논문 작성진행 필요')).toBeVisible();
+    await expect(psych.getByText('신청 상태: 승인')).toBeVisible();
+    await expect(psych.getByText('행정실 확정 검토 중', {exact:true})).toBeVisible();
+    await expect(page.getByRole('heading',{name:'행정실 확정 검토 중',exact:true})).toBeVisible();
+    await expect(psych.getByText('지도교수 확정진행 필요')).toBeVisible();
+    await expect(psych.getByText('논문 작성예정')).toBeVisible();
+    await check('approved');
     await page.getByRole('link',{name:'행정실',exact:true}).click();
     await page.getByRole('button',{name:'보완 요청',exact:true}).click();
     await expect.poll(() => messages.length).toBe(4);
@@ -37,6 +41,8 @@ for (const width of [1440, 390]) {
     await page.getByRole('link',{name:'학생',exact:true}).click();
     await expect(page.getByText('행정실 검토: 검토 완료')).toBeVisible();
     await expect(psych.getByText('논문 작성진행 필요')).toBeVisible();
+    await expect(psych.getByText('지도교수 확정완료')).toBeVisible();
+    await expect(psych.getByText('행정실 확정 검토 중',{exact:true})).toHaveCount(0);
     await expect(mech.getByText('졸업논문 수업 수강진행 필요')).toBeVisible();
     await check('confirmed');
   });
