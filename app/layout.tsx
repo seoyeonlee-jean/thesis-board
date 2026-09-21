@@ -1,0 +1,4 @@
+import "./globals.css";
+import type { Metadata } from "next";
+export const metadata: Metadata = { title: "논문 진행 보드", description: "가상 졸업논문 진행 관리 데모" };
+export default function Layout({ children }: Readonly<{ children: React.ReactNode }>) { return <html lang="ko"><body>{children}</body></html>; }
