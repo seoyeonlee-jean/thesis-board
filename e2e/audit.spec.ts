@@ -13,7 +13,7 @@ for (const width of [1440, 390]) {
     await page.getByRole('button', {name:'전공별 로드맵 생성'}).click();
     await expect(page.getByText('예시 데이터', {exact:true})).toHaveCount(2);
     await check('student');
-    await page.getByRole('button', {name:'승인 요청'}).click();
+    await page.getByRole('button', {name:'교수 컨택 완료',exact:true}).click(); await page.getByRole('button', {name:'승인 요청'}).click();
     await page.getByRole('link', {name:'교수',exact:true}).click();
     const messages: string[] = [];
     page.on('dialog', async dialog => { messages.push(dialog.message()); await dialog.accept(); });

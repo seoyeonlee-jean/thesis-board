@@ -2,39 +2,46 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { createSeed, demoStudentId } from "@/data/seed";
-import { getDepartment } from "@/data/departments";
-import { canApprove, canSetCapacity, validFeedback } from "./rules";
+import { departments } from "@/data/departments";
+import { canSetCapacity, transition, type BoardCommand } from "./rules";
 import type { ApplicationStatus, BoardState, ReviewStatus, Role } from "./types";
 
 type Store = BoardState & {
+  activeStudentId: string;
+  chooseStudent: (id:string) => void;
   selectMajors: (majors: { departmentId: string; role: Role }[]) => void;
-  requestApproval: (departmentId: string, professorId: string) => void;
-  decideApplication: (applicationId: string, status: ApplicationStatus, feedback?: string) => boolean;
-  reviewApplication: (applicationId: string, status: ReviewStatus, feedback?: string) => boolean;
-  assignCourseAdvisor: (studentId: string, departmentId: string, professorId: string) => void;
-  setCapacity: (professorId: string, capacity: number) => boolean;
+  recordContact: (departmentId:string,professorId:string) => boolean;
+  requestApproval: (departmentId:string,professorId:string,topic?:string,plan?:string) => boolean;
+  decideApplication: (id:string,status:ApplicationStatus,feedback?:string) => boolean;
+  reviewApplication: (id:string,status:ReviewStatus,feedback?:string) => boolean;
+  assignCourseAdvisor: (studentId:string,departmentId:string,professorId:string) => boolean;
+  submitStage: (departmentId:string,stageId:string) => boolean;
+  setCapacity: (professorId:string,capacity:number) => boolean;
   reset: () => void;
 };
-const history = (actor: string, detail: string) => ({ id: crypto.randomUUID(), actor, detail, at: new Date().toISOString() });
-export const useBoardStore = create<Store>()(persist((set, get) => ({ ...createSeed(),
-  selectMajors: (majors) => set((state) => ({ students: state.students.map((student) => student.id === demoStudentId ? { ...student, selectedMajors: majors } : student), histories: [...state.histories, history("학생", "전공별 로드맵을 생성했습니다.")] })),
-  requestApproval: (departmentId, professorId) => set((state) => {
-    if (state.applications.some((item) => item.studentId === demoStudentId && item.departmentId === departmentId)) return state;
-    return { applications: [...state.applications, { id: crypto.randomUUID(), studentId: demoStudentId, departmentId, professorId, topic: "학습 과정에서의 기억 형성", plan: "가상 연구계획 요약입니다.", status: "대기", requestedAt: new Date().toISOString().slice(0, 10), adminReview: "미검토", stageIndex: 0 }], histories: [...state.histories, history("학생", "지도교수 승인 요청을 제출했습니다.")] };
-  }),
-  decideApplication: (applicationId, status, feedback) => {
-    const state = get(); const app = state.applications.find((item) => item.id === applicationId); if (!app || !validFeedback(status, feedback)) return false;
-    const department = getDepartment(app.departmentId); const professor = state.professors.find((item) => item.id === app.professorId); if (!department || !professor || (status === "승인" && !canApprove(department, professor))) return false;
-    set({ applications: state.applications.map((item) => item.id === applicationId ? { ...item, status, feedback: feedback?.trim() } : item), professors: status === "승인" && department.usesCapacity ? state.professors.map((item) => item.id === professor.id ? { ...item, assigned: item.assigned + 1 } : item) : state.professors, histories: [...state.histories, history("교수", `신청을 ${status} 처리했습니다.`)] }); return true;
-  },
-  reviewApplication: (applicationId, status, feedback) => {
-    if (!validFeedback(status, feedback)) return false;
-    set((state) => ({ applications: state.applications.map((item) => item.id === applicationId ? { ...item, adminReview: status, feedback: feedback?.trim() || item.feedback } : item), histories: [...state.histories, history("행정실", `확정 검토를 ${status} 처리했습니다.`)] })); return true;
-  },
-  assignCourseAdvisor: (studentId, departmentId, professorId) => set((state) => {
-    if (state.applications.some((item) => item.studentId === studentId && item.departmentId === departmentId)) return state;
-    return { applications: [...state.applications, { id: crypto.randomUUID(), studentId, departmentId, professorId, topic: "수업 배정 논문", plan: "수업 기반 배정", status: "승인", requestedAt: new Date().toISOString().slice(0, 10), adminReview: "검토 완료", stageIndex: 0 }], histories: [...state.histories, history("행정실", "수업 기반 지도교수 배정을 완료했습니다.")] };
-  }),
-  setCapacity: (professorId, capacity) => { const professor = get().professors.find((item) => item.id === professorId); if (!professor || !canSetCapacity(professor, capacity)) return false; set((state) => ({ professors: state.professors.map((item) => item.id === professorId ? { ...item, capacity } : item), histories: [...state.histories, history("교수", "지도 정원을 변경했습니다.")] })); return true; },
-  reset: () => set(createSeed())
-}), { name: "graduation-thesis-board" }));
+const history = (actor:string,detail:string) => ({id:crypto.randomUUID(),actor,detail,at:new Date().toISOString()});
+export const useBoardStore = create<Store>()(persist((set,get) => {
+  const dispatch = (command:BoardCommand) => {
+    const before=get(), after=transition(before,departments,command,new Date().toISOString(),crypto.randomUUID());
+    if(after===before)return false; set(after); return true;
+  };
+  return {...createSeed(),activeStudentId:demoStudentId,
+    chooseStudent: id => {if(get().students.some(s=>s.id===id))set({activeStudentId:id});},
+    selectMajors: majors => {
+      if(majors.filter(m=>m.role==='primary').length!==1 || new Set(majors.map(m=>m.departmentId)).size!==majors.length || majors.some(m=>!departments.some(d=>d.id===m.departmentId)))return;
+      set(state=>({students:state.students.map(s=>s.id===state.activeStudentId?{...s,majors,selectedMajors:majors}:s),histories:[...state.histories,history(state.students.find(s=>s.id===state.activeStudentId)!.name,'전공별 로드맵 생성')]}));
+    },
+    recordContact:(departmentId,professorId)=>dispatch({type:'contact',studentId:get().activeStudentId,departmentId,professorId}),
+    requestApproval:(departmentId,professorId,topic='학습 과정에서의 기억 형성',plan='가상 연구계획 요약입니다.')=>dispatch({type:'request',studentId:get().activeStudentId,departmentId,professorId,topic,plan}),
+    decideApplication:(id,status,feedback)=>dispatch({type:'decide',id,status,feedback}),
+    reviewApplication:(id,status,feedback)=>dispatch({type:'review',id,status,feedback}),
+    assignCourseAdvisor:(studentId,departmentId,professorId)=>dispatch({type:'assign',studentId,departmentId,professorId}),
+    submitStage:(departmentId,stageId)=>dispatch({type:'submit',studentId:get().activeStudentId,departmentId,stageId}),
+    setCapacity:(professorId,capacity)=>{
+      const p=get().professors.find(p=>p.id===professorId);
+      if(!p || !departments.find(d=>d.id===p.departmentId)?.usesCapacity || !canSetCapacity(p,capacity) || p.capacity===capacity)return false;
+      set(s=>({professors:s.professors.map(p=>p.id===professorId?{...p,capacity}:p),histories:[...s.histories,history(p.name,'지도 정원 '+capacity+'명으로 변경')]})); return true;
+    },
+    reset:()=>set({...createSeed(),activeStudentId:demoStudentId})
+  };
+}, {name:'graduation-thesis-board'}));

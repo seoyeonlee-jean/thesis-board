@@ -20,4 +20,4 @@ export const seedProfessors: Professor[] = [
 export const seedApplications: Application[] = [
   { id: "app-soc-full", studentId: "student-3", departmentId: "sociology", professorId: "prof-soc-full", topic: "청년 문화", plan: "가상 연구계획", status: "대기", requestedAt: "2026-09-20", adminReview: "미검토", stageIndex: 0 }
 ];
-export const createSeed = (): BoardState => ({ students: structuredClone(seedStudents), professors: structuredClone(seedProfessors), applications: structuredClone(seedApplications), histories: [{ id: "history-seed", actor: "시스템", at: "2026-09-21T09:00:00", detail: "가상 데모 데이터를 준비했습니다." }] });
+export const createSeed = (): BoardState => ({ submissions: [], contacts: [], students: structuredClone(seedStudents), professors: structuredClone(seedProfessors), applications: structuredClone(seedApplications), histories: [{ id: "history-seed", actor: "시스템", at: "2026-09-21T09:00:00", detail: "가상 데모 데이터를 준비했습니다." }] });

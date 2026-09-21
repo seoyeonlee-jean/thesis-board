@@ -20,8 +20,8 @@ it.each(['수정 요청', '면담 요청', '반려', '보완 요청'] as const)(
 });
 it('감사: 정원 사용 학과만 승인 시 배정 인원 증가', () => {
   const s = useBoardStore.getState();
-  s.requestApproval('psychology', 'prof-psych');
-  s.requestApproval('sociology', 'prof-soc-open');
+  s.recordContact('psychology', 'prof-psych'); s.requestApproval('psychology', 'prof-psych');
+  s.selectMajors([{departmentId:'sociology',role:'primary'},{departmentId:'psychology',role:'secondary'}]); s.requestApproval('sociology', 'prof-soc-open');
   const before = structuredClone(useBoardStore.getState().professors);
   for (const a of useBoardStore.getState().applications.filter(a => a.studentId === 'student-1')) {
     expect(s.decideApplication(a.id, '승인')).toBe(true);
@@ -31,7 +31,7 @@ it('감사: 정원 사용 학과만 승인 시 배정 인원 증가', () => {
   }
 });
 it('감사: 교수 승인 직후 단계 유지 및 검토 중 다음 할 일 표시', () => {
-  const s = useBoardStore.getState(); s.requestApproval('psychology', 'prof-psych');
+  const s = useBoardStore.getState(); s.recordContact('psychology','prof-psych'); s.requestApproval('psychology', 'prof-psych');
   s.selectMajors([{departmentId:'psychology',role:'primary'}, {departmentId:'mechanical',role:'secondary'}]);
   const a = useBoardStore.getState().applications.find(a => a.studentId === 'student-1')!;
   s.decideApplication(a.id, '승인');
@@ -44,7 +44,7 @@ it('감사: 교수 승인 직후 단계 유지 및 검토 중 다음 할 일 표
   expect(html).toContain('행정실 확정 검토 중');
 });
 it('감사: 행정실 검토 완료 후 해당 전공 확정', () => {
-  const s = useBoardStore.getState(); s.requestApproval('psychology', 'prof-psych');
+  const s = useBoardStore.getState(); s.recordContact('psychology','prof-psych'); s.requestApproval('psychology', 'prof-psych');
   const a = useBoardStore.getState().applications.find(a => a.studentId === 'student-1')!;
   s.decideApplication(a.id, '승인'); s.reviewApplication(a.id, '검토 완료');
   expect(stageForApplication(useBoardStore.getState().applications.find(i => i.id === a.id))).toBe(1);
@@ -53,7 +53,7 @@ it('감사: 행정실 검토 완료 후 해당 전공 확정', () => {
 it('감사: 보완 요청을 검토 중으로 안내하지 않는다', () => {
   const s = useBoardStore.getState();
   s.selectMajors([{departmentId:'psychology',role:'primary'}]);
-  s.requestApproval('psychology','prof-psych');
+  s.recordContact('psychology','prof-psych'); s.requestApproval('psychology','prof-psych');
   const a = useBoardStore.getState().applications.find(a => a.studentId === 'student-1')!;
   s.decideApplication(a.id,'승인'); s.reviewApplication(a.id,'보완 요청','서류 확인');
   const state = useBoardStore.getState();
