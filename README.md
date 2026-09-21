@@ -9,7 +9,7 @@ npm ci
 npm run dev
 ```
 
-`http://localhost:3000`에서 시작합니다. 검증은 `npm test`, `npm run build`, `npm run test:e2e` 순서로 실행합니다. E2E는 빌드한 프로덕션 서버를 사용합니다. 최초 실행 전에는 `npx playwright install chromium`이 필요할 수 있습니다. 기존 pnpm 잠금 파일도 보존되어 있지만 재현 기준은 package-lock.json입니다.
+`http://localhost:3000`에서 시작합니다. 검증은 `npm test`, `npm run build`, `npm run test:e2e` 순서로 실행합니다. E2E는 빌드한 프로덕션 서버를 사용합니다. 최초 실행 전에는 `npx playwright install chromium`이 필요할 수 있습니다. 패키지 관리자는 npm으로 통일하며 package-lock.json만 사용합니다. pnpm-lock.yaml은 삭제했습니다. sharp 0.35.4가 Node 20.9 이상을 요구하므로 Node 22/24 LTS 환경을 사용하세요(검증: Node 24.19.0, npm 10.9.3).
 
 ## 가정과 시연 데이터
 
@@ -57,8 +57,8 @@ npm run dev
 - 학과 추가·편집 관리 화면, 행정실의 명단 등록·요건 관리·공지 등록·명단 내보내기는 '준비 중' 메뉴만 제공합니다.
 - 상태 공유는 동일 브라우저의 역할 전환을 기준으로 하며 실제 여러 사용자의 서버 동기화는 제공하지 않습니다.
 
-보안 유지보수(2026-09-21): Next.js를 15.5.2 → 15.5.24로 패치 업데이트하고 npm·pnpm 잠금 파일을 함께 갱신했습니다. 기존 RSC 원격 코드 실행 관련 설치 경고는 해소했습니다. 경고 문구만 없어지는 첫 버전은 15.5.9지만 이후 공식 보안 수정까지 포함하는 15.5.24를 선택했습니다([공식 보안 릴리스](https://nextjs.org/blog/august-2026-security-release)). 메이저·마이너 및 다른 직접 의존성 버전은 유지했습니다.
+보안 유지보수: Next.js 15.5.24로 기존 RSC 관련 설치 경고를 해소했습니다([공식 보안 릴리스](https://nextjs.org/blog/august-2026-security-release)). 2026-09-22에는 npm으로 통일하고 Vitest 3.2.6, Playwright 1.55.1, PostCSS 8.5.18, sharp 0.35.4로 critical·high를 수정했습니다. 메이저는 유지했습니다. Next.js의 고정된 PostCSS와 optional sharp도 해당 버전을 쓰도록 package.json의 overrides를 지정했습니다.
 
-전체 의존성 보안 감사는 아직 0건이 아닙니다. npm audit 기준 7개 패키지 항목(critical 1 / high 4 / moderate 2)이 남습니다: Vitest·@vitest/mocker, Playwright·@playwright/test, PostCSS·이를 사용하는 Next.js의 간접 경고, sharp. Next.js 자체의 기존 경고 해결과 전체 의존성 안전성은 구분해야 합니다. 추가 업데이트는 이번 Next.js 패치 범위 밖이며, 외부 공개 전에 별도 점검이 필요합니다. 배포·push는 수행하지 않았습니다. 상세 검증은 AUDIT.md를 참고하세요.
+전체 의존성 보안 감사는 아직 0건이 아닙니다. critical·high·low는 0, moderate는 전파 항목을 포함해 11개입니다. 원인은 Vitest/mocker의 개발 서버 파일 읽기 문제와 PostCSS의 후속 소스맵 읽기 문제 두 종류입니다. 사용자의 critical·high 수정 범위에 따라 moderate는 기록만 남겼습니다. 외부에 테스트 서버를 노출하거나 신뢰할 수 없는 CSS를 빌드하지 마세요. 배포·push는 수행하지 않았습니다. 영향 구분·미수정 사유·검증 결과는 AUDIT.md의 최신 npm 전환 절을 참고하세요.
 
 사람이 수행할 3분 리허설, 1분 내 이해도, 5명 중 4명 정답 검증은 아직 수행하지 않았으며 에이전트 완료 판정에 포함하지 않습니다.

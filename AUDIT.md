@@ -1,5 +1,45 @@
 # 완료 기준 및 GitHub 게시 전 점검
 
+## 최신: npm 통일 및 critical·high 수정 (2026-09-22)
+
+사용자 요청에 따라 npm/package-lock.json으로 통일했다. pnpm-lock.yaml 및 빌드 승인 placeholder만 담긴 pnpm-workspace.yaml을 삭제했으며 Git 이전 커밋에서 복구할 수 있다. 기존 .pnpm-store 캐시는 삭제하지 않고 Git 제외 설정을 유지한다. 아래 표의 심각도는 **수정 전 7개 패키지 감사 항목** 기준이다. 동일 취약점이 상위 패키지에 전파되므로 7개의 독립적인 취약점을 뜻하지 않는다.
+
+| 감사 항목 | 수정 전 심각도 | 배포된 사이트 영향 / 사용 구분 | 메이저 변경 필요 여부 | 처리 및 남은 사유 |
+|---|---|---|---|---|
+| vitest | critical | 개발 테스트 전용. 테스트 UI/API 서버 노출 시 파일 읽기·실행 위험이며 프로덕션 페이지 실행 도구가 아님 | critical 수정은 불필요(3.2.6); 남은 moderate는 4.1.11 이상 필요 | 3.2.4 → 3.2.6. critical 제거, mocker 관련 moderate는 범위 밖·메이저 변경 필요로 보류 |
+| @vitest/mocker | moderate | Vitest 개발 서버 플러그인. 현재 Node 환경 테스트에서 UI/브라우저 모드 서버를 배포하지 않음 | 필요: 공식 수정 4.1.11, 3.x 백포트 예정 없음 | Vitest 필수 동반 의존성으로 3.2.6까지 갱신됐으나 별도 major override 없이 보류 |
+| @playwright/test | high | E2E 개발 도구 전용. 배포 사이트 요청 처리에는 사용하지 않음 | 불필요 | 1.55.0 → 1.55.1, 하위 playwright의 브라우저 다운로드 인증서 검증 문제 해결 |
+| playwright | high | 개발 환경의 브라우저 다운로드·테스트 실행. 프로덕션 앱에 직접 사용하지 않음 | 불필요 | @playwright/test와 함께 1.55.1로 갱신, 감사 항목 제거 |
+| postcss | high | 빌드/개발 시 CSS 처리. Next.js에도 포함되지만 이 앱은 요청 시 외부 CSS를 파싱하지 않음. 악성 CSS·소스맵 입력은 빌드 환경에 영향 가능 | 불필요: 같은 8.x 수정. npm의 Next 16 제안 대신 PostCSS override 적용 | 8.5.6 및 Next의 8.4.31 → 8.5.18. high 제거. 후속 moderate(8.5.23 수정)는 사용자 범위 밖이라 보류 |
+| next (via postcss) | moderate | Next 서버는 실행 의존성. 이번 항목의 원인은 CSS 처리 하위 의존성으로, Next 자체 RSC 경고와 다름 | PostCSS override 경로는 불필요. npm 자동 제안은 Next 16.3.5(major)이므로 미적용 | Next 15.5.24 유지. high PostCSS 수정의 동반 효과만 반영하고 잔여 moderate 보류 |
+| sharp | high | Next 이미지 최적화의 실행 의존성. 악성 이미지 처리 시 서버 영향 가능. 현재 앱에는 next/image·사용자 이미지 업로드 없음 | 불필요: major 0 유지, 0.35.4는 Next 허용 범위. 단 0.x minor 변경·Node 최소 버전 상승 주의 | 0.34.5 → 0.35.4, libvips/libheif 관련 경고 제거. Node >=20.9 필요, 실제 PNG→JPEG 변환도 확인 |
+
+근거: npm audit JSON 및 로컬 package.json/의존성 트리/앱 import 검사. 공식 공지는 [Vitest critical](https://github.com/vitest-dev/vitest/security/advisories/GHSA-5xrq-8626-4rwp), [mocker moderate](https://github.com/vitest-dev/vitest/security/advisories/GHSA-82fw-gwwq-j7x9), [PostCSS high](https://github.com/postcss/postcss/security/advisories/GHSA-r28c-9q8g-f849), [PostCSS 후속 moderate](https://github.com/postcss/postcss/security/advisories/GHSA-fxqj-rqcc-2cmp), [sharp high](https://github.com/lovell/sharp/security/advisories/GHSA-rgj7-g3m4-5g8c)를 확인했다. 배포 영향 평가는 현재 코드와 실행 구성에 대한 판단이며 해당 라이브러리의 모든 사용 방식이 안전하다는 뜻은 아니다.
+
+### 최종 감사 잔여 항목
+
+`npm audit --json`: critical 0 / high 0 / moderate 11 / low 0. 종료 코드 1은 아래 moderate가 남았기 때문이다. moderate만 없애기 위한 추가 업그레이드나 audit fix --force는 실행하지 않았다.
+
+| 남은 원인 | 보고된 패키지 항목 | 미수정 사유 |
+|---|---|---|
+| GHSA-82fw-gwwq-j7x9 (moderate) | vitest, @vitest/mocker (2개) | 공식 수정은 4.1.11 이상. major 변경 및 moderate 수정은 이번 범위 밖. UI/API·HMR 서버를 외부에 노출하지 않을 것 |
+| GHSA-fxqj-rqcc-2cmp (moderate) | postcss, next, autoprefixer, postcss-import, postcss-js, postcss-load-config, postcss-nested, tailwindcss, vite (9개) | 8.5.18로 high만 수정했으며 후속 moderate 수정은 범위 밖. 8.5.23으로 해결 가능하나 이번에는 기록만 남김. 신뢰할 수 없는 CSS·소스맵 처리 금지 |
+
+7 → 11은 보안 문제가 4개 새로 추가되었다는 뜻이 아니다. 수정 전 high/critical이 사라진 뒤 남은 PostCSS moderate가 통합된 의존성 트리의 여러 소비자에 전파되어 집계된다. 모든 11개 항목을 숨기지 않고 기록했다.
+
+### 설치 및 재검증
+
+- package.json의 직접 수정: @playwright/test 1.55.1, vitest 3.2.6, postcss 8.5.18. overrides: postcss 8.5.18, next 아래 sharp 0.35.4. 앱 코드는 변경하지 않음.
+- npm 잠금 파일 갱신 후 `npm ci`로 기존 node_modules를 재구성: 종료 0, 160개 설치. npm ls에서도 지정 버전·override 적용 확인. pnpm에 의존하지 않음.
+- 초기 `$postcss` 참조형 override를 npm이 해석하지 못해 동일한 명시 버전으로 수정한 뒤 설치 성공. 비활성화된 인증서 검증이나 감사 무시는 사용하지 않음.
+- Node 24.19.0 / npm 10.9.3. sharp 네이티브 로딩과 2×2 PNG → 1×1 JPEG 변환 성공(267 bytes).
+- `npm test`: Vitest 3.2.6, 34/34 통과(데이터 완결성 포함).
+- `npm run build`: Next 15.5.24, 타입 검사 및 7개 정적 페이지 생성, 종료 0.
+- `CI=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3107 npm run test:e2e`: Chromium 13/13 통과. 첫 실행은 새 Playwright가 요구하는 Chromium 1193 미설치로 브라우저 시작 전 실패했으며, 공식 Chromium 설치 후 전체 재실행 성공.
+- 잠금 파일의 로컬 file 링크 0건, pnpm 잠금/워크스페이스 파일 없음, 설치된 next가 pnpm 심볼릭 링크가 아닌 npm 디렉터리임을 확인. `git diff --check` 통과.
+
+이하 이전 감사는 당시 결과의 이력으로 보존한다. 현재 의존성 상태는 이 최신 절을 기준으로 한다.
+
 검증일: 2026-09-21. 기존 감사의 실패 두 건 수정에 이어, 남은 완료 범위 기능을 구현하고 전체 테스트를 재실행했다. 승인·확정 해석은 사용자의 후속 지시에 맞춰 아래 표와 README에 반영했다.
 
 기존 감사에서 남긴 완료 범위의 기능 누락은 아래와 같이 구현·검증했다. 사람 평가 3개는 에이전트 완료 기준에서 제외되어 미확인으로 남긴다. 현재 /goal 도구에는 원문이 보존되어 있지 않아, 기존 감사에 기록된 완료 기준 및 제외 범위를 기준으로 분류했다. 패키지 보안 유지보수는 별도이며 공개 배포 준비 완료를 뜻하지 않는다.
