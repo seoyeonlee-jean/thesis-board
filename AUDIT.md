@@ -53,7 +53,7 @@
 | 실제 파일 업로드·이메일·알림 발송 | 이번에 하지 않을 일 | 제외 | 제출 상태·시각만 기록. 실제 전송은 구현하지 않음 |
 | 학과 편집·학생 명단 등록·요건 관리·공지 등록·내보내기 | 이번에 하지 않을 일 | 제외 | 행정실 준비 중 메뉴 및 README 남은 한계 |
 | 사람 리허설·이해도·5명 사용자 평가 | 에이전트 완료 확인 제외 | 미확인 | 실제 참여자 평가를 수행하지 않았으며 자동 테스트로 대체 판정하지 않음 |
-| Next.js 취약 버전 경고 | 별도 보안 유지보수 | 미해결 | 기존 설치 경고 기록. 기능 완료 기준과 구별하며 README에 외부 공개 전 업데이트 필요 명시 |
+| Next.js 취약 버전 경고 | 별도 보안 유지보수 | 기존 경고 해결 | 15.5.24로 패치 업데이트. 전체 의존성 감사의 잔여 경고는 아래 별도 기록 |
 
 이전 통과 표가 누락을 놓친 이유: 기본 경로의 부분 결과만 검사했고, 미신청 집계·중복 호출·컨택 기록·전공 탭 및 전체 일정 충돌을 검증하는 테스트가 없었기 때문이다.
 
@@ -75,7 +75,23 @@ node scripts/audit-secrets.mjs
 
 Playwright는 빌드한 프로덕션 서버를 전용 포트에서 시작한다. 실행 중인 개발 서버와 빌드 결과를 공유하는 문제를 피한다. 스크린샷은 test-results/audit-감사-1440px-대표-흐름-레이아웃과-빈-피드백/ 및 390px 대응 폴더에 student.png, professor.png, approved.png, admin.png, confirmed.png로 저장되며 Git에서는 제외된다.
 
-## GitHub 게시 전 점검 (513d5b2 감사 기록)
+## Next.js 보안 패치 후 재검증 (2026-09-21)
+
+- 변경: `next` 15.5.2 → 15.5.24. package.json, package-lock.json, pnpm-lock.yaml 동기화. 다른 직접 의존성 버전과 앱 코드는 변경하지 않음.
+- 기존 npm deprecation은 [CVE-2025-66478](https://nextjs.org/blog/CVE-2025-66478)의 RSC/App Router 원격 코드 실행 취약점 안내였다. 해당 수정은 15.5.7에 들어갔으나 15.5.7·15.5.8에도 후속 DoS·소스 노출 관련 경고가 있다.
+- npm 레지스트리 조회상 경고 문구가 없는 최초 패치는 15.5.9이다. 다만 [2026년 8월 공식 공지](https://nextjs.org/blog/august-2026-security-release)에서 추가 Critical 문제의 최소 수정 버전을 15.5.24로 지정하므로 보안 수정 기준의 최소 패치로 15.5.24를 선택했다. 15.5.25는 수정된 sharp 사용 시 AVIF 최적화를 다시 켜는 후속 릴리스여서 이번에는 올리지 않았다.
+- 설치된 Next.js·manifest·npm lock 모두 15.5.24이며 deprecated 필드는 없다. pnpm 설치는 패키지 갱신 뒤 기존 esbuild/sharp 빌드 스크립트 미승인 경고로 종료 코드 1이었고, 스크립트 실행 권한을 확대하지 않았다. 아래 실제 빌드·테스트는 모두 통과했다.
+
+| 확인 방법 | 결과 | 근거 |
+|---|---|---|
+| npm test | 통과 | Vitest 34/34, 데이터 완결성 1개 포함 |
+| npm run build | 통과 | Next.js 15.5.24 출력, 타입 검사·정적 페이지 7개 생성, 종료 0 |
+| CI=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3107 npm run test:e2e | 통과 | Chromium 13/13, 업데이트된 프로덕션 빌드 사용 |
+| npm audit --json | 잔여 경고 있음 | 7개 패키지 항목: critical 1, high 4, moderate 2. 종료 1 |
+
+남은 감사 항목은 Vitest·@vitest/mocker, Playwright·@playwright/test, PostCSS, sharp 및 PostCSS로 전파된 Next.js 항목이다. Next.js 항목의 via는 `postcss`이며 기존 RSC 취약점은 더 이상 보고되지 않는다. 현재 Next.js 패치가 모든 하위 의존성 취약점까지 없앤다고 주장하지 않는다. 자동 audit fix나 메이저 업그레이드는 수행하지 않았다. Node 테스트의 localStorage 경고와 E2E 색상 환경 변수 경고는 테스트 실패가 아니다.
+
+## GitHub 게시 전 점검 원본 기록 (513d5b2)
 
 | 점검 | 결과 | 근거 |
 |---|---|---|
