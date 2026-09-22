@@ -10,7 +10,7 @@ for(const width of [1440,375])test('학생 영역 탭·SNU Blue·초안 보존 '
  await expect(page.getByLabel('다음 할 일')).toHaveCSS('background-color','rgb(15, 15, 112)');
  await expect(page.getByLabel('다음 할 일')).toHaveCSS('color','rgb(255, 255, 255)');
  await expect(page.getByLabel('다음 할 일').getByRole('button')).toHaveCSS('background-color','rgb(255, 255, 255)');
- await expect(page.getByRole('tab',{name:'심리학과',exact:true})).toHaveCSS('background-color','rgb(15, 15, 112)');
+ await expect(page.getByRole('button',{name:'심리학과 전공 선택',exact:true})).toHaveAttribute('aria-pressed','true');
  await expect(page.locator('.roadmap-step[data-status="진행 중"] > .roadmap-node')).toHaveCSS('background-color','rgb(15, 15, 112)');
  await noOverflow(page);await page.screenshot({path:info.outputPath('student-roadmap.png'),fullPage:true});
  await page.getByLabel('다음 할 일').getByRole('button').click();
@@ -19,11 +19,11 @@ for(const width of [1440,375])test('학생 영역 탭·SNU Blue·초안 보존 '
  await studentTab(page,'면담 일정');await expect(page.getByText('아직 제안된 면담이 없습니다.',{exact:false})).toBeVisible();
  await studentTab(page,'지도교수');await expect(page.getByLabel('연구 제목',{exact:true})).toHaveValue('탭 이동 보존');
  await page.reload();await expect(page.getByLabel('연구 제목',{exact:true})).toHaveValue('탭 이동 보존');
- await studentTab(page,'연구계획·논문');await expect(page.getByRole('tabpanel')).toHaveCount(1);
+ await studentTab(page,'연구계획서·논문');await expect(page.getByRole('tabpanel')).toHaveCount(1);
  await studentTab(page,'공지');await expect(page.getByText('새 공지가 없습니다.',{exact:true})).toBeVisible();
  await studentTab(page,'캘린더');await expect(page.getByLabel('통합 캘린더')).toBeVisible();
  await page.getByLabel('통합 캘린더').getByRole('button',{name:'지도교수 신청·승인',exact:true}).click();
- await expect(page.getByRole('tab',{name:'중어중문학과',exact:true})).toHaveAttribute('aria-selected','true');
+ await expect(page.getByRole('button',{name:'중어중문학과 전공 선택',exact:true})).toHaveAttribute('aria-pressed','true');
  await expect(tabs.getByRole('tab',{name:'로드맵',exact:true})).toHaveAttribute('aria-selected','true');
  await expect(page.locator('#step-advisor details')).toHaveAttribute('open','');
  await studentTab(page,'캘린더');await page.getByRole('button',{name:'타임라인 보기'}).click();await noOverflow(page);
@@ -32,9 +32,9 @@ for(const width of [1440,375])test('학생 영역 탭·SNU Blue·초안 보존 '
 test('학생 업무 키보드 탐색과 해시 링크',async({page})=>{
  await page.goto('/student?department=chinese#documents');
  const tabs=page.getByRole('tablist',{name:'학생 업무'});
- await expect(tabs.getByRole('tab',{name:'연구계획·논문',exact:true})).toHaveAttribute('aria-selected','true');
- await tabs.getByRole('tab',{name:'연구계획·논문',exact:true}).focus();await page.keyboard.press('ArrowRight');
- await expect(tabs.getByRole('tab',{name:'캘린더',exact:true})).toBeFocused();
+ await expect(tabs.getByRole('tab',{name:'연구계획서·논문',exact:true})).toHaveAttribute('aria-selected','true');
+ await tabs.getByRole('tab',{name:'연구계획서·논문',exact:true}).focus();await page.keyboard.press('ArrowRight');
+ await expect(tabs.getByRole('tab',{name:'면담 일정',exact:true})).toBeFocused();
  await page.keyboard.press('End');await expect(tabs.getByRole('tab',{name:'공지',exact:true})).toBeFocused();
  await page.keyboard.press('Home');await expect(tabs.getByRole('tab',{name:'로드맵',exact:true})).toBeFocused();
  await page.getByLabel('데모 사용자').selectOption('student-2');

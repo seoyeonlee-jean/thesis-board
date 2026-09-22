@@ -6,7 +6,7 @@ import type {Department,Notice,Stage,Student,Target} from '@/lib/types';
 import {Badge,Avatar,colorFor,dateLabel,FeedbackView,FileInput} from './ui';
 import {Roadmap} from './roadmap';
 import {editorDateLabel} from '@/lib/dates';
-import {StageFields,stepTypeLabels} from './stage-fields';
+import {StageFields} from './stage-fields';
 export function AdminBoard(){
  const state=useBoardStore(),assistant=state.assistants.find(a=>a.id===state.assistantId)!,d=state.departments.find(d=>d.id===assistant.departmentId)!;
  const [tab,setTab]=useState('procedure');
@@ -26,7 +26,6 @@ function ProcedureEditor({department:published}:{department:Department}){
  <ol className="space-y-3" aria-label="절차 단계 편집">{d.stages.map((step,i)=><li className="rounded-xl border p-3" key={step.id}>
   <div className="mb-2 flex items-start justify-between gap-3"><h3 className="min-w-0 font-bold">{i+1}. {step.name||'새 단계'}</h3><button className="btn-alt shrink-0" aria-label={step.name+' 삭제'} onClick={()=>update({stages:d.stages.filter(s=>s.id!==step.id)})}>삭제</button></div>
   <p className="mb-2 break-words text-xs text-slate-500">{step.startDate?editorDateLabel(step.startDate)+' ~ ':''}{step.conditionalDeadlines?.length?step.conditionalDeadlines.map(v=>v.condition+' '+editorDateLabel(v.deadline)).join(' / '):editorDateLabel(step.dueDate)+(step.dueDate?'까지':' · 정보 확인 필요')}</p>
-  <p className="mb-3 text-xs font-bold text-snu">{step.stepType?stepTypeLabels[step.stepType]:({application:'신청 제출',approval:'교수 승인',plan:'자료 제출',final:'논문 검토',task:'외부 활동',course:'수강 확인'})[step.kind]}</p>
   <details><summary className="cursor-pointer text-sm font-bold">단계 설정</summary><div className="mt-3 grid gap-3 sm:grid-cols-2">
   <label className="field-label sm:col-span-2">단계명<input value={step.name} onChange={e=>change(step.id,{name:e.target.value})}/></label>
   <StageFields step={step} onChange={patch=>change(step.id,patch)}/><label className="field-label">대상<select value={step.target} onChange={e=>change(step.id,{target:e.target.value as Target})}><option value="all">전체</option><option value="primary">주전공</option><option value="secondary">복수전공</option></select></label>

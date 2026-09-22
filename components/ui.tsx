@@ -24,4 +24,4 @@ export function FileView({file}:{file?:Attachment}){
  if(!file)return null;
  return <div className="my-2"><div className="flex flex-wrap gap-2"><button type="button" className="btn-alt" onClick={()=>setOpen(!open)}>{file.name} 열기</button><a className="btn-alt" href={file.data} download={file.name}>다운로드</a></div>{open&&<div className="mt-2 rounded-xl border p-3">{file.type==='application/pdf'?<iframe title={file.name+' 미리보기'} src={file.data} className="h-72 w-full"/>:<p className="text-sm">DOCX는 다운로드 후 문서 편집기에서 열 수 있습니다.</p>}</div>}</div>;
 }
-export function OfficialLink({value}:{value:string}){return /^https?:\/\//.test(value)?<a className="text-sm underline" href={value} target="_blank" rel="noreferrer">공식 안내 ↗</a>:<span className="text-xs text-slate-500">{value||'정보 확인 필요'}</span>;}
+export function OfficialLink({value}:{value:string}){return /^https?:\/\//.test(value)?<a className="text-sm underline" href={value} target="_blank" rel="noreferrer">공식 안내 ↗</a>:<span className="text-xs text-slate-500">{value&&!value.includes('예시')?value:'링크 정보 확인 필요'}</span>;}

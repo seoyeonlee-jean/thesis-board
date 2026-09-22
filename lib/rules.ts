@@ -33,9 +33,11 @@ export function progress(s: BoardState, student: Student, d: Department) {
   return {steps,index:index < 0 ? steps.length : index, current:index < 0 ? undefined : steps[index], completed:steps.filter(step => stageDone(s,student,d,step)).length};
 }
 export const dday = (date: string, now: string) => {
-  if(!date) return '정보 확인 필요';
-  const days = Math.ceil((new Date(date).getTime() - new Date(now).getTime()) / 86400000);
-  return days < 0 ? 'D+'+Math.abs(days) : days === 0 ? 'D-day' : 'D-'+days;
+  if(!date)return '정보 확인 필요';
+  const due=new Date(date),today=new Date(now);
+  if(!Number.isFinite(due.getTime())||!Number.isFinite(today.getTime()))return '정보 확인 필요';
+  const days=Math.round((Date.UTC(due.getFullYear(),due.getMonth(),due.getDate())-Date.UTC(today.getFullYear(),today.getMonth(),today.getDate()))/86400000);
+  return days<0?'마감 '+Math.abs(days)+'일 지남':due.getTime()<today.getTime()?'마감 시간 지남':days===0?'오늘 마감':'마감까지 '+days+'일';
 };
 export function stageStatus(s: BoardState, student: Student, d: Department, step: Stage, now: string) {
   if(stageDone(s,student,d,step)) return '완료';

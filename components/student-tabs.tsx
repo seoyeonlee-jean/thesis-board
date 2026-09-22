@@ -1,7 +1,7 @@
 "use client";
 export const studentAreas = [
- ['roadmap','로드맵'], ['advisor','지도교수'], ['meetings','면담 일정'],
- ['documents','연구계획·논문'], ['calendar','캘린더'], ['notices','공지'],
+ ['roadmap','로드맵'], ['advisor','지도교수'], ['documents','연구계획서·논문'],
+ ['meetings','면담 일정'], ['calendar','캘린더'], ['notices','공지'],
 ] as const;
 export type StudentArea = typeof studentAreas[number][0];
 export const areaForTarget = (target:string):StudentArea =>
