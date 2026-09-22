@@ -1,7 +1,9 @@
-import type { Department } from "@/lib/types";
-export const psychology: Department = { id: "psychology", name: "심리학과", semester: "2026-2", sourceType: "가상", sourceDescription: "해커톤 시연용 가상 절차", checkedAt: "2026-09-21", officialLink: "예시 링크(가상)", requirements: { primary: "필수", secondary: "필수" }, method: "contact_approval", usesCapacity: false, color: "violet", stages: [
-  { id: "advisor", name: "지도교수 확정", description: "교수 컨택 후 승인 요청을 받습니다.", dueDate: "2026-10-08", documents: "컨택 기록", submissionMethod: "이메일", evidence: "교수 승인", notes: "교수 승인 뒤 행정실 검토가 필요합니다.", contact: "심리학과 행정실 (가상)" },
-  { id: "writing", name: "논문 작성", description: "지도교수와 초안을 작성합니다.", dueDate: "2026-11-10", documents: "논문 초안", submissionMethod: "이메일", evidence: "제출 기록", notes: "면담 일정을 확인하세요.", contact: "심리학과 행정실 (가상)" },
-  { id: "review", review: true, name: "심사 제출", description: "심사용 논문을 제출합니다.", dueDate: "2026-11-28", documents: "심사용 논문 PDF", submissionMethod: "시스템", evidence: "접수 확인", notes: "표지 양식을 확인하세요.", contact: "심리학과 행정실 (가상)" },
-  { id: "result", name: "심사 결과 전달", description: "심사 결과와 보완 사항을 확인합니다.", dueDate: "2026-12-12", documents: "수정본", submissionMethod: "시스템", evidence: "결과 확인", notes: "보완 요청은 기한 내 처리하세요.", contact: "심리학과 행정실 (가상)" }
-] };
+import { department, step } from './shared';
+export const psychology = department('psychology', '심리학과', '사회과학대학', 'violet', 'application', [
+  step('apply', '지도교수 신청', 'application', '2026-10-02T18:00', '관심 교수에게 연구 방향을 소개해 주세요.', '지도 신청서'),
+  step('advisor', '지도교수 승인', 'approval', '2026-10-08T18:00', '교수의 검토와 면담 안내를 확인하세요.', '지도 신청서'),
+  step('plan', '연구계획서 제출', 'plan', '2026-10-23T18:00', '지도교수와 논의한 연구계획을 제출하세요.', '연구계획서 PDF / DOCX 또는 본문'),
+  step('writing', '논문 작성', 'task', '2026-11-13T18:00', '초안을 작성하고 진행 상황을 확인하세요.', '논문 초안'),
+  step('final', '최종논문 제출·승인', 'final', '2026-12-04T18:00', '최종 파일을 제출하고 교수의 승인을 받으세요.', '최종논문 PDF / DOCX'),
+  step('office', '학과 제출', 'task', '2026-12-18T18:00', '승인된 논문을 학과에 제출한 뒤 완료를 기록하세요.', '승인된 최종논문', '학과사무실'),
+]);

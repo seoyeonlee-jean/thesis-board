@@ -1,79 +1,17 @@
-import { beforeEach, expect, it, vi } from 'vitest';
-import { createElement } from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
-import { departments } from '@/data/departments';
-import { createSeed } from '@/data/seed';
-import { useBoardStore } from '@/lib/store';
-import { stageForApplication, validFeedback, nextTask, missingRequirementMajors } from '@/lib/rules';
-import { StudentBoard } from '@/components/student-board';
-
-// Render the selected test snapshot; Zustand SSR otherwise uses its initial seed.
-vi.mock('@/lib/store', async importOriginal => {
-  const actual = await importOriginal<typeof import('@/lib/store')>();
-  return { ...actual, useBoardStore: Object.assign(() => actual.useBoardStore.getState(), actual.useBoardStore) };
+import {it,expect} from 'vitest';
+import {createSeed} from '@/data/seed';
+import {noticeMatches,stagesFor,validateProcedure} from '@/lib/rules';
+import {apply,ok,assistant,student} from './fixtures';
+import type {Notice} from '@/lib/types';
+it('절차 임시저장은 게시 데이터 불변',()=>{const s=createSeed(),d=structuredClone(s.departments[0]);d.stages[0].dueDate='2026-10-03T18:00';const saved=ok(s,assistant,{type:'saveProcedure',department:d});expect(saved.departments).toEqual(s.departments);expect(saved.procedureDrafts[d.id].stages[0].dueDate).toBe(d.stages[0].dueDate);});
+it('절차 게시 날짜 변경 배지·알림 및 교수/학생 정보 불변',()=>{const s=createSeed(),d=structuredClone(s.departments[0]);d.stages[0].dueDate='2026-10-03T18:00';const updated=ok(s,assistant,{type:'publishProcedure',department:d});expect(updated.departments[0].stages[0].changedAt).toBeTruthy();expect(updated.notifications).toHaveLength(2);expect(updated.professors).toEqual(s.professors);expect(updated.students).toEqual(s.students);expect(updated.sections).toEqual(s.sections);});
+it('추가·삭제·순서 변경이 게시 후 반영',()=>{const s=createSeed(),d=structuredClone(s.departments[0]);d.stages=[{...d.stages[3],id:'new'},...d.stages.slice(0,3)];const updated=ok(s,assistant,{type:'publishProcedure',department:d});expect(updated.departments[0].stages.map(s=>s.id)).toEqual(['new','apply','advisor','plan']);});
+it('학생/다른 학과 조교는 절차 쓰기 불가',()=>{const s=createSeed();expect(apply(s,student,{type:'publishProcedure',department:s.departments[0]}).error).toBeTruthy();expect(apply(s,assistant,{type:'publishProcedure',department:s.departments[1]}).error).toBeTruthy();});
+it('조교의 제출·초안 위조는 학생 및 지도교수 데이터를 바꾸지 못함',()=>{
+ const s=createSeed();const fake={id:'fake',studentId:'student-1',departmentId:'psychology',stageId:'application',professorId:'prof-psych',title:'위조',summary:'위조',body:'위조',meetingWanted:false,savedAt:''};
+ for(const type of ['saveDraft','sendApplication','sendSubmission'] as const)expect(apply(s,assistant,{type,draft:fake}).state).toBe(s);
 });
-
-beforeEach(() => useBoardStore.setState(createSeed()));
-it.each(['수정 요청', '면담 요청', '반려', '보완 요청'] as const)('감사: %s 빈 피드백 거부', status => {
-  expect(validFeedback(status, '   ')).toBe(false);
-  expect(validFeedback(status, '구체적인 사유')).toBe(true);
-});
-it('감사: 정원 사용 학과만 승인 시 배정 인원 증가', () => {
-  const s = useBoardStore.getState();
-  s.recordContact('psychology', 'prof-psych'); s.requestApproval('psychology', 'prof-psych');
-  s.selectMajors([{departmentId:'sociology',role:'primary'},{departmentId:'psychology',role:'secondary'}]); s.requestApproval('sociology', 'prof-soc-open');
-  const before = structuredClone(useBoardStore.getState().professors);
-  for (const a of useBoardStore.getState().applications.filter(a => a.studentId === 'student-1')) {
-    expect(s.decideApplication(a.id, '승인')).toBe(true);
-  }
-  for (const p of useBoardStore.getState().professors) {
-    expect(p.assigned).toBe(before.find(b => b.id === p.id)!.assigned + (p.id === 'prof-soc-open' ? 1 : 0));
-  }
-});
-it('감사: 교수 승인 직후 단계 유지 및 검토 중 다음 할 일 표시', () => {
-  const s = useBoardStore.getState(); s.recordContact('psychology','prof-psych'); s.requestApproval('psychology', 'prof-psych');
-  s.selectMajors([{departmentId:'psychology',role:'primary'}, {departmentId:'mechanical',role:'secondary'}]);
-  const a = useBoardStore.getState().applications.find(a => a.studentId === 'student-1')!;
-  s.decideApplication(a.id, '승인');
-  expect(stageForApplication(useBoardStore.getState().applications.find(i => i.id === a.id))).toBe(0);
-  expect(stageForApplication(undefined)).toBe(0);
-  const state = useBoardStore.getState();
-  expect(nextTask(state.students[0], departments, state.applications)?.stage.name).toBe('행정실 확정 검토 중');
-  const html = renderToStaticMarkup(createElement(StudentBoard));
-  expect(html).toContain('신청 상태: 승인');
-  expect(html).toContain('행정실 확정 검토 중');
-});
-it('감사: 행정실 검토 완료 후 해당 전공 확정', () => {
-  const s = useBoardStore.getState(); s.recordContact('psychology','prof-psych'); s.requestApproval('psychology', 'prof-psych');
-  const a = useBoardStore.getState().applications.find(a => a.studentId === 'student-1')!;
-  s.decideApplication(a.id, '승인'); s.reviewApplication(a.id, '검토 완료');
-  expect(stageForApplication(useBoardStore.getState().applications.find(i => i.id === a.id))).toBe(1);
-  expect(stageForApplication(undefined)).toBe(0);
-});
-it('감사: 보완 요청을 검토 중으로 안내하지 않는다', () => {
-  const s = useBoardStore.getState();
-  s.selectMajors([{departmentId:'psychology',role:'primary'}]);
-  s.recordContact('psychology','prof-psych'); s.requestApproval('psychology','prof-psych');
-  const a = useBoardStore.getState().applications.find(a => a.studentId === 'student-1')!;
-  s.decideApplication(a.id,'승인'); s.reviewApplication(a.id,'보완 요청','서류 확인');
-  const state = useBoardStore.getState();
-  expect(nextTask(state.students[0],departments,state.applications)?.stage.name).toBe('행정실 보완 요청 확인');
-});
-it.each(['primary','secondary'] as const)('감사: %s 요건 누락과 면제를 구분한다', role => {
-  const d = structuredClone(departments[0]);
-  const student = {...createSeed().students[0],selectedMajors:[{departmentId:d.id,role}]};
-  d.requirements[role] = '' as never;
-  expect(missingRequirementMajors(student,[d])).toHaveLength(1);
-  d.requirements[role] = '면제';
-  expect(missingRequirementMajors(student,[d])).toHaveLength(0);
-});
-it.each(['officialLink', 'dueDate', 'requirement'])('감사: %s 누락 정보 확인 필요 렌더링', field => {
-  const d = departments[0]; const original = structuredClone(d);
-  useBoardStore.getState().selectMajors([{ departmentId: d.id, role: 'primary' }]);
-  try {
-    if (field === 'officialLink') d.officialLink = '';
-    if (field === 'dueDate') d.stages[0].dueDate = '';
-    if (field === 'requirement') d.requirements.primary = '' as never;
-    expect(renderToStaticMarkup(createElement(StudentBoard))).toContain('정보 확인 필요');
-  } finally { Object.assign(d, original); }
-});
+it('수업형으로 게시하면 신청 단계 제거 및 두 방식만 허용',()=>{const s=createSeed(),d={...s.departments[0],method:'course' as const};const updated=ok(s,assistant,{type:'publishProcedure',department:d});expect(updated.departments[0].stages.some(s=>['application','approval'].includes(s.kind))).toBe(false);expect(validateProcedure({...d,method:'invalid' as never})).toBeTruthy();});
+it('역전 날짜와 누락 필드는 게시 실패',()=>{const d=structuredClone(createSeed().departments[0]);d.stages[0].dueDate='2026-08-01T18:00';expect(validateProcedure(d)).toBeTruthy();d.stages[0].dueDate='';expect(validateProcedure(d)).toBeTruthy();});
+it('공지는 학기·전공 유형·졸업예정 대상만 표시·알림',()=>{let s=createSeed();const n:Notice={id:'',departmentId:'psychology',title:'새 공지',body:'안내',semester:'2026-2',graduationSemester:'2027년 2월',target:'primary',stageId:'plan',eventAt:'2026-10-02T10:00',savedAt:''};s=ok(s,assistant,{type:'publishNotice',notice:n});expect(s.notifications).toHaveLength(1);expect(noticeMatches(s.notices[0],s.students[0],s.departments[0])).toBe(true);expect(noticeMatches(s.notices[0],s.students[2],s.departments[0])).toBe(false);});
+it('단계 대상 구분과 요건 누락은 면제 처리와 구별',()=>{const s=createSeed(),d=s.departments[1];d.stages[0].target='primary';expect(stagesFor(s.students[0],d).some(v=>v.id===d.stages[0].id)).toBe(false);delete (d.requirements as Partial<typeof d.requirements>).secondary;expect(stagesFor(s.students[0],d)).toHaveLength(0);expect(d.requirements.secondary).toBeUndefined();});

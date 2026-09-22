@@ -1,0 +1,12 @@
+import {createSeed} from '@/data/seed';
+import {emptyDraft,transition,type Command} from '@/lib/rules';
+import type {Actor,Attachment,BoardState,Draft} from '@/lib/types';
+export const at='2026-09-22T00:00:00Z';
+export const student:Actor={role:'student',id:'student-1'},professor:Actor={role:'professor',id:'prof-psych'},assistant:Actor={role:'assistant',id:'assistant-psych'};
+export const pdf:Attachment={name:'plan.pdf',type:'application/pdf',size:9,data:'data:application/pdf;base64,JVBERi0xLjQK'};
+let sequence=0;
+export const apply=(s:BoardState,a:Actor,c:Command)=>transition(s,a,c,at,'id-'+(++sequence));
+export const ok=(s:BoardState,a:Actor,c:Command)=>{const r=apply(s,a,c);if(r.error)throw Error(r.error);return r.state;};
+export const draft=(stageId='application'):Draft=>({...emptyDraft(student.id,'psychology',stageId),professorId:'prof-psych',title:'기억과 학습',summary:'기억 연구',body:'연구계획 본문',meetingWanted:true});
+export const requested=()=>ok(createSeed(),student,{type:'sendApplication',draft:draft()});
+export const approved=()=>{const s=requested();return ok(s,professor,{type:'decide',id:s.applications[0].id,status:'승인',feedback:''});};

@@ -1,87 +1,14 @@
-import {describe,it,expect} from 'vitest';
+import {it,expect} from 'vitest';
 import {createSeed} from '@/data/seed';
-import {departments} from '@/data/departments';
-import {transition,weekStart,deadlineConflicts,adminRows,progressIndex,nextTask} from '@/lib/rules';
-import type {BoardCommand,} from '@/lib/rules';
-import type {BoardState} from '@/lib/types';
-const at='2026-09-21T10:00:00Z';
-let serial=0;
-const run=(s:BoardState,c:BoardCommand)=>transition(s,departments,c,at,'test-'+(++serial));
-const request=(s:BoardState)=>run(s,{type:'request',studentId:'student-2',departmentId:'sociology',professorId:'prof-soc-open',topic:'주제',plan:'계획'});
-describe('완료 범위 회귀',()=>{
- it('상태 함수에서도 정원 마감 신청 차단',()=>{
-  const s=createSeed();expect(run(s,{type:'request',studentId:'student-2',departmentId:'sociology',professorId:'prof-soc-full',topic:'주제',plan:'계획'})).toBe(s);
- });
- it('중복 승인 시 인원 및 이력 중복 증가 방지',()=>{
-  let s=request(createSeed());const app=s.applications.find(a=>a.studentId==='student-2')!;
-  s=run(s,{type:'decide',id:app.id,status:'승인'});
-  expect(s.professors.find(p=>p.id==='prof-soc-open')!.assigned).toBe(2);
-  expect(run(s,{type:'decide',id:app.id,status:'승인'})).toBe(s);
-  expect(run(s,{type:'decide',id:app.id,status:'반려',feedback:'사유'})).toBe(s);
- });
- it('정원이 마지막 한 자리일 때 두 번째 승인 차단',()=>{
-  let s=createSeed();s.professors.find(p=>p.id==='prof-soc-open')!.capacity=2;
-  s=request(s);s=run(s,{type:'request',studentId:'student-6',departmentId:'sociology',professorId:'prof-soc-open',topic:'주제',plan:'계획'});
-  const apps=s.applications.filter(a=>a.professorId==='prof-soc-open');
-  s=run(s,{type:'decide',id:apps[0].id,status:'승인'});
-  expect(run(s,{type:'decide',id:apps[1].id,status:'승인'})).toBe(s);
- });
- it('컨택 기록 전 요청 차단 및 기록 후 허용',()=>{
-  let s=createSeed();const command:BoardCommand={type:'request',studentId:'student-1',departmentId:'psychology',professorId:'prof-psych',topic:'주제',plan:'계획'};
-  expect(run(s,command)).toBe(s);
-  s=run(s,{type:'contact',studentId:'student-1',departmentId:'psychology',professorId:'prof-psych'});
-  expect(s.contacts[0].at).toBe(at);expect(run(s,command).applications).toHaveLength(2);
- });
- it('미신청 학생 포함 학과별 집계 및 전공 분리',()=>{
-  const s=createSeed(), all=adminRows(s,departments), soc=adminRows(s,departments,'sociology');
-  expect(new Set(all.map(r=>r.student.id)).size).toBe(8);expect(all).toHaveLength(10);
-  expect(soc).toHaveLength(3);expect(soc.filter(r=>r.reason==='미신청')).toHaveLength(2);
-  expect(soc.find(r=>r.student.id==='student-3')?.reason).toBe('정원 마감');
- });
- it('승인과 확정 검토 상태가 집계에 반영',()=>{
-  let s=request(createSeed());const app=s.applications.find(a=>a.studentId==='student-2')!;
-  s=run(s,{type:'decide',id:app.id,status:'승인'});
-  expect(adminRows(s,departments).find(r=>r.app?.id===app.id)?.reason).toBe('확정 검토 대기');
-  s=run(s,{type:'review',id:app.id,status:'검토 완료'});
-  expect(adminRows(s,departments).find(r=>r.app?.id===app.id)?.reason).toBe('확정');
- });
- it('모든 단계에서 같은 달력 주 충돌 검사',()=>{
-  const ds=structuredClone(departments.slice(0,2));ds[0].stages=ds[0].stages.slice(0,2);ds[1].stages=ds[1].stages.slice(0,2);
-  ds[0].stages[0].dueDate='2026-10-01';ds[1].stages[0].dueDate='2026-10-12';
-  ds[0].stages[1].dueDate='2026-11-02';ds[1].stages[1].dueDate='2026-11-08';
-  const s=createSeed().students[0];s.selectedMajors=s.majors;
-  expect(deadlineConflicts(s,ds).map(c=>c.week)).toEqual(['2026-11-02']);
-  expect(weekStart('2026-11-08')).not.toBe(weekStart('2026-11-09'));
- });
- it('배정은 수업 학과만 허용하고 해당 전공만 변경',()=>{
-  const s=createSeed();expect(run(s,{type:'assign',studentId:'student-1',departmentId:'psychology',professorId:'prof-psych'})).toBe(s);
-  const assigned=run(s,{type:'assign',studentId:'student-1',departmentId:'mechanical',professorId:'prof-mech'});
-  expect(progressIndex('student-1',departments[1],assigned.applications)).toBe(2);
-  expect(progressIndex('student-1',departments[0],assigned.applications)).toBe(0);
-  expect(assigned.applications.find(a=>a.studentId==='student-1')!.professorId).toBe('prof-mech');
- });
- it('순서대로 제출 기록하고 관리자 진행 상태 및 이력 반영',()=>{
-  let s=request(createSeed());const app=s.applications.find(a=>a.studentId==='student-2')!;
-  expect(run(s,{type:'submit',studentId:'student-2',departmentId:'sociology',stageId:'plan'})).toBe(s);
-  s=run(s,{type:'decide',id:app.id,status:'승인'});s=run(s,{type:'review',id:app.id,status:'검토 완료'});
-  s=run(s,{type:'submit',studentId:'student-2',departmentId:'sociology',stageId:'plan'});
-  expect(s.submissions[0].at).toBe(at);
-  expect(adminRows(s,departments).find(r=>r.app?.id===app.id)?.index).toBe(2);
-  expect(run(s,{type:'submit',studentId:'student-2',departmentId:'sociology',stageId:'plan'})).toBe(s);
-  expect(s.histories.at(-1)).toMatchObject({actor:'이도윤',at});
- });
- it('모든 단계 제출 후 완료 전공은 다음 할 일에서 제외',()=>{
-  let s=request(createSeed());const app=s.applications.find(a=>a.studentId==='student-2')!;
-  s=run(s,{type:'decide',id:app.id,status:'승인'});s=run(s,{type:'review',id:app.id,status:'검토 완료'});
-  for(const stage of departments[2].stages.slice(1))s=run(s,{type:'submit',studentId:'student-2',departmentId:'sociology',stageId:stage.id});
-  expect(progressIndex('student-2',departments[2],s.applications,s.submissions)).toBe(5);
-  expect(nextTask(s.students[1],departments,s.applications,s.submissions)?.department.id).toBe('psychology');
- });
- it.each(['수정 요청','면담 요청','반려'] as const)('%s 후 피드백 보존 및 재신청',status=>{
-  let s=request(createSeed());const app=s.applications.find(a=>a.studentId==='student-2')!;
-  s=run(s,{type:'decide',id:app.id,status,feedback:'수정 필요'});
-  expect(s.applications.find(a=>a.id===app.id)?.feedback).toBe('수정 필요');
-  s=request(s);expect(s.applications.filter(a=>a.studentId==='student-2')).toHaveLength(1);
-  expect(s.applications.find(a=>a.id===app.id)?.status).toBe('대기');
- });
-});
+import {progress,advisorFor} from '@/lib/rules';
+import {apply,ok,student,professor,assistant,draft,pdf,requested,approved} from './fixtures';
+const slots=['2026-10-02T14:00','2026-10-02T14:30'];
+it('면담 제안·선택·완료와 양쪽 알림',()=>{let s=requested();s=ok(s,professor,{type:'decide',id:s.applications[0].id,status:'면담 요청',feedback:'면담합시다',slots,location:'온라인'});const id=s.meetings[0].id;s=ok(s,student,{type:'selectSlot',id,slot:slots[0]});expect(s.meetings[0].status).toBe('확정');expect(s.notifications.some(n=>n.recipientId===professor.id&&n.text.includes('확정'))).toBe(true);s=ok(s,professor,{type:'completeMeeting',id});expect(s.meetings[0].status).toBe('완료');});
+it('제안 없는 면담 및 임의 시간 선택 거부',()=>{let s=requested();expect(apply(s,professor,{type:'decide',id:s.applications[0].id,status:'면담 요청',feedback:'면담',slots:[]}).error).toBeTruthy();s=ok(s,professor,{type:'decide',id:s.applications[0].id,status:'면담 요청',feedback:'면담',slots});expect(apply(s,student,{type:'selectSlot',id:s.meetings[0].id,slot:'2026-10-03T14:00'}).error).toBeTruthy();});
+it('면담 충돌 및 다른 학생의 선택 거부',()=>{let s=requested();s=ok(s,professor,{type:'decide',id:s.applications[0].id,status:'면담 요청',feedback:'면담',slots});expect(apply(s,{role:'student',id:'student-3'},{type:'selectSlot',id:s.meetings[0].id,slot:slots[0]}).error).toBeTruthy();s.meetings.push({...s.meetings[0],id:'other',studentId:'student-3',selected:slots[0],status:'확정'});expect(apply(s,student,{type:'selectSlot',id:s.meetings[0].id,slot:slots[0]}).error).toBeTruthy();});
+it('피드백 수정 이력·시각·학생 알림',()=>{let s=requested();s=ok(s,professor,{type:'decide',id:s.applications[0].id,status:'수정 요청',feedback:'첫 피드백'});s=ok(s,professor,{type:'editFeedback',target:'application',id:s.applications[0].id,text:'수정 피드백'});expect(s.applications[0].feedback?.history[0].text).toBe('첫 피드백');expect(s.applications[0].feedback?.editedAt).toBeTruthy();expect(s.notifications.at(-1)?.text).toContain('수정');});
+it('연구계획서 임시저장·제출·승인 진행',()=>{let s=approved();s=ok(s,student,{type:'saveDraft',draft:draft('plan')});expect(s.drafts[0].savedAt).toBeTruthy();s=ok(s,student,{type:'sendSubmission',draft:draft('plan')});expect(progress(s,s.students[0],s.departments[0]).current?.id).toBe('plan');s=ok(s,professor,{type:'review',id:s.submissions[0].id,status:'승인',feedback:''});expect(progress(s,s.students[0],s.departments[0]).current?.id).toBe('writing');});
+it('최종논문 파일 필수·수정 후 v2·승인 및 이력',()=>{let s=approved();s=ok(s,student,{type:'sendSubmission',draft:draft('plan')});s=ok(s,professor,{type:'review',id:s.submissions[0].id,status:'승인',feedback:''});s=ok(s,student,{type:'completeStep',departmentId:'psychology',stageId:'writing'});expect(apply(s,student,{type:'sendSubmission',draft:draft('final')}).error).toBeTruthy();s=ok(s,student,{type:'sendSubmission',draft:{...draft('final'),file:pdf}});const v1=s.submissions.at(-1)!;expect(apply(s,professor,{type:'review',id:v1.id,status:'수정 요청',feedback:''}).error).toBeTruthy();s=ok(s,professor,{type:'review',id:v1.id,status:'수정 요청',feedback:'수정하세요'});s=ok(s,student,{type:'sendSubmission',draft:{...draft('final'),file:pdf}});const v2=s.submissions.at(-1)!;expect(v2.version).toBe(2);s=ok(s,professor,{type:'review',id:v2.id,status:'승인',feedback:''});expect(progress(s,s.students[0],s.departments[0]).current?.id).toBe('office');expect(s.submissions.find(v=>v.id===v1.id)?.feedback?.text).toBe('수정하세요');});
+it('단계 건너뛰기와 다른 교수 검토 거부',()=>{const s=approved();expect(apply(s,student,{type:'sendSubmission',draft:{...draft('final'),file:pdf}}).error).toBeTruthy();const sent=ok(s,student,{type:'sendSubmission',draft:draft('plan')});expect(apply(sent,{role:'professor',id:'prof-mech'},{type:'review',id:sent.submissions[0].id,status:'승인',feedback:''}).error).toBeTruthy();});
+it('읽음 처리는 수신자만 가능',()=>{const s=requested();expect(apply(s,student,{type:'readNotification',id:s.notifications[0].id}).error).toBeTruthy();const n=ok(s,professor,{type:'readNotification',id:s.notifications[0].id});expect(n.notifications[0].read).toBe(true);});
+it('수업형 중간점검도 교수 확인 후 다음 수업 선택',()=>{let s=createSeed();const actor={role:'student' as const,id:'student-2'};expect(apply(s,actor,{type:'completeStep',departmentId:'mechanical',stageId:'midterm'}).error).toBeTruthy();s=ok(s,actor,{type:'sendSubmission',draft:{...draft('midterm'),studentId:actor.id,departmentId:'mechanical'}});s=ok(s,{role:'professor',id:'prof-mech'},{type:'review',id:s.submissions[0].id,status:'승인',feedback:''});s=ok(s,actor,{type:'enroll',sectionId:'section-mech-2'});expect(s.students[1].enrollmentIds).toHaveLength(2);expect(advisorFor(s,s.students[1],s.departments[2])?.id).toBe('prof-mech');expect(apply(s,assistant,{type:'enroll',sectionId:'section-mech-1'}).error).toBeTruthy();});

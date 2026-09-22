@@ -1,19 +1,25 @@
-import { describe, expect, it } from "vitest";
-import { departments, getDepartment } from "@/data/departments";
-import { seedProfessors, seedStudents } from "@/data/seed";
-import { canApply, canApprove, canSetCapacity, hasSameWeekConflict, nextTask, requiredRoadmaps, stageForApplication, validFeedback } from "@/lib/rules";
-import type { Application } from "@/lib/types";
-
-const demo = structuredClone(seedStudents[0]);
-const psych = getDepartment("psychology")!;
-const mech = getDepartment("mechanical")!;
-const soc = getDepartment("sociology")!;
-describe("학과별 졸업논문 규칙", () => {
-  it("선택한 필수 전공의 로드맵만 생성한다", () => { demo.selectedMajors = [{ departmentId: "psychology", role: "primary" }, { departmentId: "mechanical", role: "secondary" }]; expect(requiredRoadmaps(demo, departments).map((item) => item.department.id)).toEqual(["psychology", "mechanical"]); });
-  it("복수전공 면제 전공은 로드맵을 만들지 않는다", () => { demo.selectedMajors = [{ departmentId: "sociology", role: "secondary" }]; expect(requiredRoadmaps(demo, departments)).toHaveLength(0); });
-  it("전공 통틀어 가장 이른 마감을 다음 할 일로 선택한다", () => { demo.selectedMajors = [{ departmentId: "psychology", role: "primary" }, { departmentId: "mechanical", role: "secondary" }]; expect(nextTask(demo, departments, [])?.department.id).toBe("psychology"); expect(hasSameWeekConflict(demo, departments, [])).toBe(true); });
-  it("정원이 찬 교수에게 신청·승인할 수 없다", () => { const full = seedProfessors.find((item) => item.id === "prof-soc-full")!; expect(canApply(soc, full)).toBe(false); expect(canApprove(soc, full)).toBe(false); });
-  it("정원을 배정 인원보다 작게 정할 수 없다", () => { const professor = seedProfessors.find((item) => item.id === "prof-soc-open")!; expect(canSetCapacity(professor, 0)).toBe(false); expect(canSetCapacity(professor, 2)).toBe(true); });
-  it("승인 후 행정실 검토 완료일 때만 해당 전공의 다음 단계로 이동한다", () => { const application: Application = { id: "a", studentId: demo.id, departmentId: psych.id, professorId: "prof-psych", topic: "t", plan: "p", status: "승인", requestedAt: "2026-01-01", adminReview: "검토 완료", stageIndex: 0 }; expect(stageForApplication(application)).toBe(1); expect(stageForApplication({ ...application, adminReview: "미검토" })).toBe(0); expect(mech.stages[stageForApplication(undefined)].name).toBe("졸업논문 수업 수강"); });
-  it("피드백이 필요한 상태는 빈 입력을 거부한다", () => { expect(validFeedback("수정 요청", "")).toBe(false); expect(validFeedback("반려", "사유")).toBe(true); expect(validFeedback("보완 요청", undefined)).toBe(false); });
+import {describe,it,expect} from 'vitest';
+import {createSeed} from '@/data/seed';
+import {advisorFor,approvedCount,progress,stagesFor,validFile,FILE_LIMIT} from '@/lib/rules';
+import {apply,ok,student,professor,assistant,draft,pdf,requested,approved} from './fixtures';
+describe('2차 명세 신청·권한·정원',()=>{
+ it('사전 기록 없이 첫 신청, 교수 알림',()=>{const s=requested();expect(s.applications[0].status).toBe('제출됨');expect(s.notifications[0].recipientId).toBe(professor.id);});
+ it('본문 대신 PDF로 신청 가능',()=>{const s=ok(createSeed(),student,{type:'sendApplication',draft:{...draft(),body:'',file:pdf}});expect(s.applications[0].file).toEqual(pdf);});
+ it('본문과 파일이 모두 없으면 거부',()=>expect(apply(createSeed(),student,{type:'sendApplication',draft:{...draft(),body:''}}).error).toBeTruthy());
+ it('동시 신청과 제출 후 임시저장 거부',()=>{const s=requested();for(const type of ['sendApplication','saveDraft'] as const)expect(apply(s,student,{type,draft:draft()}).state).toBe(s);});
+ it('정원 마감 교수에게 신청 불가',()=>expect(apply(createSeed(),student,{type:'sendApplication',draft:{...draft(),professorId:'prof-full'}}).error).toBeTruthy());
+ it('모집 종료 교수에게 신청 불가',()=>{let s=createSeed();s=ok(s,professor,{type:'capacity',capacity:5,available:false,year:2026});expect(apply(s,student,{type:'sendApplication',draft:draft()}).error).toBeTruthy();});
+ it('승인 즉시 해당 전공만 다음 단계 및 정원 갱신',()=>{const s=approved();expect(progress(s,s.students[0],s.departments[0]).current?.kind).toBe('plan');expect(progress(s,s.students[0],s.departments[1]).index).toBe(0);expect(approvedCount(s,s.professors[0])).toBe(3);});
+ it('중복 승인·승인 후 반려는 무효',()=>{const s=approved();for(const status of ['승인','반려'] as const)expect(apply(s,professor,{type:'decide',id:s.applications[0].id,status,feedback:'사유'}).state).toBe(s);});
+ it('승인 인원 미만 정원 거부',()=>expect(apply(approved(),professor,{type:'capacity',capacity:2,available:true,year:2026}).error).toBeTruthy());
+ it('마지막 여석의 두 번째 승인 거부',()=>{let s=requested();s=ok(s,{role:'student',id:'student-3'},{type:'sendApplication',draft:{...draft(),studentId:'student-3'}});s=ok(s,professor,{type:'capacity',capacity:3,available:true,year:2026});s=ok(s,professor,{type:'decide',id:s.applications[0].id,status:'승인',feedback:''});expect(apply(s,professor,{type:'decide',id:s.applications[1].id,status:'승인',feedback:''}).error).toBeTruthy();});
+ it.each(['수정 요청','면담 요청','반려'] as const)('%s 빈 피드백 거부',status=>{const s=requested();expect(apply(s,professor,{type:'decide',id:s.applications[0].id,status,feedback:' '}).error).toBeTruthy();});
+ it('수정 요청 재제출은 한 신청 유지',()=>{let s=requested();s=ok(s,professor,{type:'decide',id:s.applications[0].id,status:'수정 요청',feedback:'보완'});s=ok(s,student,{type:'sendApplication',draft:{...draft(),body:'수정된 본문'}});expect(s.applications).toHaveLength(1);expect(s.applications[0].body).toBe('수정된 본문');});
+ it('반려 후 새 신청 가능',()=>{let s=requested();s=ok(s,professor,{type:'decide',id:s.applications[0].id,status:'반려',feedback:'분야 다름'});s=ok(s,student,{type:'sendApplication',draft:draft()});expect(s.applications).toHaveLength(2);});
+ it('조교는 신청 승인 및 정원 변경 불가',()=>{const s=requested();expect(apply(s,assistant,{type:'decide',id:s.applications[0].id,status:'승인',feedback:''}).state).toBe(s);expect(apply(s,assistant,{type:'capacity',capacity:9,available:true,year:2026}).state).toBe(s);});
+ it('다른 교수는 신청 처리 불가',()=>{const s=requested();expect(apply(s,{role:'professor',id:'prof-mech'},{type:'decide',id:s.applications[0].id,status:'승인',feedback:''}).state).toBe(s);});
+ it('수업형 지도교수는 분반에서 읽으며 신청 단계 없음',()=>{const s=createSeed(),st=s.students[1],d=s.departments[2];expect(advisorFor(s,st,d)?.id).toBe('prof-mech');expect(stagesFor(st,d).some(v=>['application','approval'].includes(v.kind))).toBe(false);});
+ it('조교가 학생 대신 수강신청할 수 없음',()=>expect(apply(createSeed(),assistant,{type:'enroll',sectionId:'section-mech-2'}).error).toBeTruthy());
+ it('미등록·면제 전공 로드맵 제외',()=>{const s=createSeed();expect(stagesFor(s.students[0],s.departments[2])).toHaveLength(0);s.departments[1].requirements.secondary='면제';expect(stagesFor(s.students[0],s.departments[1])).toHaveLength(0);});
+ it('첨부 파일 제한',()=>{expect(validFile(pdf)).toBe(true);expect(validFile({...pdf,size:FILE_LIMIT+1})).toBe(false);expect(validFile({...pdf,name:'a.html'})).toBe(false);expect(validFile({...pdf,data:'javascript:alert(1)'})).toBe(false);});
 });

@@ -1,123 +1,213 @@
-import type { Application, ApplicationStatus, Department, Professor, ReviewStatus, Student, Submission, BoardState } from "./types";
+import type { Actor, Application, Attachment, BoardState, Department, Draft, Feedback, Notice, Professor, Stage, Student, Submission } from './types';
 
-export const requiredRoadmaps = (student: Student, departments: Department[]) => student.selectedMajors.flatMap((major) => {
-  const department = departments.find((item) => item.id === major.departmentId);
-  return department && department.requirements?.[major.role] === "필수" ? [{ department, role: major.role }] : [];
-});
-
-export const missingRequirementMajors = (student: Student, departments: Department[]) => student.selectedMajors.filter(major => {
-  const requirement = departments.find(d => d.id === major.departmentId)?.requirements?.[major.role];
-  return requirement !== "필수" && requirement !== "면제";
-});
-
-export const reviewNotice = (application: Pick<Application, "status" | "adminReview"> | undefined) => {
-  if (application?.status !== "승인" || application.adminReview === "검토 완료") return undefined;
-  return application.adminReview === "보완 요청" ? "행정실 보완 요청 확인" : "행정실 확정 검토 중";
+export const FILE_LIMIT = 512 * 1024;
+export const validFile = (f?: Attachment) => !f || (f.size > 0 && f.size <= FILE_LIMIT && /\.(pdf|docx)$/i.test(f.name) && /^data:application\/(pdf|vnd.openxmlformats-officedocument.wordprocessingml.document);base64,[A-Za-z0-9+/=]+$/.test(f.data));
+export const majorRole = (s: Student, departmentId: string) => s.majors.find(m => m.departmentId === departmentId)?.role;
+export const stagesFor = (s: Student, d: Department) => {
+  const role = majorRole(s,d.id);
+  return role && d.requirements?.[role] === '필수' ? d.stages.filter(step => (step.target === 'all' || step.target === role) && (d.method !== 'course' || !['application','approval'].includes(step.kind))) : [];
 };
-
-export const canApply = (department: Department, professor: Professor) => !department.usesCapacity || (professor.available && (professor.capacity ?? 0) > professor.assigned);
-export const canApprove = (department: Department, professor: Professor) => !department.usesCapacity || (professor.capacity ?? 0) > professor.assigned;
-export const canSetCapacity = (professor: Professor, capacity: number) => Number.isInteger(capacity) && capacity >= professor.assigned;
-export const requiresFeedback = (status: ApplicationStatus | ReviewStatus) => ["수정 요청", "면담 요청", "반려", "보완 요청"].includes(status);
-export const validFeedback = (status: ApplicationStatus | ReviewStatus, feedback?: string) => !requiresFeedback(status) || Boolean(feedback?.trim());
-
-export const stageForApplication = (application: Application | undefined, review?: ReviewStatus) => {
-  if (!application) return 0;
-  if (application.status !== "승인") return 0;
-  return (review ?? application.adminReview) === "검토 완료" ? 1 : 0;
+export const applicationFor = (s: BoardState, studentId: string, departmentId: string) => [...s.applications].reverse().find(a => a.studentId === studentId && a.departmentId === departmentId);
+export function advisorFor(s: BoardState, student: Student, d: Department) {
+  const id = d.method === 'course'
+    ? [...student.enrollmentIds].reverse().map(id => s.sections.find(c => c.id === id && c.departmentId === d.id)).find(Boolean)?.professorId
+    : s.applications.find(a => a.studentId === student.id && a.departmentId === d.id && a.status === '승인')?.professorId;
+  return s.professors.find(p => p.id === id);
+}
+export const approvedCount = (s: BoardState, p: Professor) => p.baselineAssigned + s.applications.filter(a => a.professorId === p.id && a.status === '승인').length
+  + s.students.filter(st => st.enrollmentIds.some(id => s.sections.some(c => c.id === id && c.professorId === p.id))).length;
+export const canApply = (s: BoardState, p: Professor) => p.available && approvedCount(s,p) < p.capacity;
+export const latestSubmission = (s: BoardState, studentId: string, departmentId: string, stageId: string) => [...s.submissions].reverse().find(v => v.studentId === studentId && v.departmentId === departmentId && v.stageId === stageId);
+export function stageDone(s: BoardState, student: Student, d: Department, step: Stage) {
+  const a = applicationFor(s, student.id, d.id);
+  if(step.kind === 'application') return !!a && a.status !== '반려' && (d.stages.some(v => v.kind === 'approval') || a.status === '승인');
+  if(step.kind === 'approval') return a?.status === '승인';
+  if(step.kind === 'course') return student.enrollmentIds.some(id => s.sections.some(c => c.id === id && c.departmentId === d.id && c.courseId === step.courseId));
+  if(step.kind === 'plan' || step.kind === 'final') return latestSubmission(s,student.id,d.id,step.id)?.status === '승인';
+  return s.completions.some(v => v.studentId === student.id && v.departmentId === d.id && v.stageId === step.id);
+}
+export function progress(s: BoardState, student: Student, d: Department) {
+  const steps = stagesFor(student,d);
+  const index = steps.findIndex(step => !stageDone(s,student,d,step));
+  return {steps,index:index < 0 ? steps.length : index, current:index < 0 ? undefined : steps[index], completed:steps.filter(step => stageDone(s,student,d,step)).length};
+}
+export const dday = (date: string, now: string) => {
+  if(!date) return '정보 확인 필요';
+  const days = Math.ceil((new Date(date).getTime() - new Date(now).getTime()) / 86400000);
+  return days < 0 ? 'D+'+Math.abs(days) : days === 0 ? 'D-day' : 'D-'+days;
 };
-
-export const progressIndex = (studentId: string, department: Department, applications: Application[], submissions: Submission[] = []) => {
-  const application = applications.find(a => a.studentId === studentId && a.departmentId === department.id);
-  const advisor = department.stages.findIndex(s => s.id === 'advisor');
-  let index = application?.status === '승인' && application.adminReview === '검토 완료' ? advisor + 1 : 0;
-  while (index < department.stages.length && index !== advisor && submissions.some(s => s.studentId === studentId && s.departmentId === department.id && s.stageId === department.stages[index].id)) index++;
-  return index;
-};
-
-export const nextTask = (student: Student, departments: Department[], applications: Application[], submissions: Submission[] = []) => {
-  const candidates = requiredRoadmaps(student, departments).flatMap(({ department }) => {
-    const application = applications.find((item) => item.studentId === student.id && item.departmentId === department.id);
-    const stageIndex = progressIndex(student.id, department, applications, submissions);
-    if (stageIndex >= department.stages.length) return [];
-    const notice = reviewNotice(application);
-    const original = department.stages[stageIndex];
-    const stage = notice ? { ...original, name: notice, description: application?.adminReview === "보완 요청"
-      ? "행정실 피드백을 확인하고 요청된 내용을 보완해 주세요."
-      : "교수 승인이 완료되었습니다. 행정실 확정 검토 결과를 기다려 주세요." } : original;
-    return [{ department, stage, stageIndex }];
-  });
-  return candidates.sort((a, b) => a.stage.dueDate.localeCompare(b.stage.dueDate))[0];
-};
-
-export const weekStart = (date: string) => {
-  const d = new Date(date + 'T00:00:00Z');
-  if (!Number.isFinite(d.getTime())) return '';
-  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
-  return d.toISOString().slice(0,10);
-};
-export const deadlineConflicts = (student: Student, departments: Department[]) => {
-  const weeks = new Map<string, Set<string>>();
-  for (const {department} of requiredRoadmaps(student, departments)) for (const stage of department.stages) {
-    const week = weekStart(stage.dueDate); if (!week) continue;
-    const ids = weeks.get(week) ?? new Set<string>(); ids.add(department.id); weeks.set(week,ids);
+export function stageStatus(s: BoardState, student: Student, d: Department, step: Stage, now: string) {
+  if(stageDone(s,student,d,step)) return '완료';
+  const current = progress(s,student,d).current;
+  if(current?.id !== step.id) return '예정';
+  const app = applicationFor(s,student.id,d.id);
+  const sub = latestSubmission(s,student.id,d.id,step.id);
+  if((['application','approval'].includes(step.kind) && app?.status === '수정 요청') || sub?.status === '수정 요청') return '보완 필요';
+  return step.dueDate && new Date(step.dueDate).getTime() < new Date(now).getTime() ? '마감 지남' : '진행 중';
+}
+export const noticeMatches = (n: Notice, s: Student, d: Department) => !!n.publishedAt && n.departmentId === d.id && n.semester === d.semester && (!n.graduationSemester || n.graduationSemester === s.graduationSemester) && (n.target === 'all' || n.target === majorRole(s,d.id));
+export const draftKey = (studentId: string, departmentId: string, stageId: string) => [studentId,departmentId,stageId].join(':');
+export const emptyDraft = (studentId: string, departmentId: string, stageId: string): Draft => ({id:draftKey(studentId,departmentId,stageId),studentId,departmentId,stageId,professorId:'',title:'',summary:'',body:'',meetingWanted:false,savedAt:''});
+export function validateProcedure(d: Department): string | undefined {
+  if(!d.semester.trim() || !d.graduationSemester.trim()) return '적용 학기와 졸업예정 학기를 입력해 주세요.';
+  if(!['application','course'].includes(d.method)) return '지도교수 결정 방식을 확인해 주세요.';
+  if(!d.stages.length || new Set(d.stages.map(s => s.id)).size !== d.stages.length) return '서로 다른 단계가 하나 이상 필요합니다.';
+  for(const s of d.stages) {
+    if(!s.name.trim() || !s.description.trim() || !s.documents.trim() || !s.submissionMethod.trim() || !s.startDate || !s.dueDate) return '단계명·기간·설명·제출물·제출처를 모두 입력해 주세요.';
+    if(!Number.isFinite(Date.parse(s.startDate)) || !Number.isFinite(Date.parse(s.dueDate)) || s.startDate > s.dueDate) return '마감은 시작 이후여야 합니다.';
+    if(!['all','primary','secondary'].includes(s.target) || !['application','approval','plan','final','task','course'].includes(s.kind) || !validFile(s.file)) return '단계 유형·대상 또는 첨부 형식을 확인해 주세요.';
+    if(s.kind === 'course' && !s.courseId) return '수업 단계에는 수업 코드를 입력해 주세요.';
   }
-  return [...weeks].filter(([,ids]) => ids.size > 1).map(([week,ids]) => ({week,departmentIds:[...ids]}));
-};
-export const hasSameWeekConflict = (student: Student, departments: Department[], _applications: Application[]) => deadlineConflicts(student,departments).length > 0;
-
-export const effectiveStudent = (student: Student) => ({...student, selectedMajors: student.selectedMajors.length ? student.selectedMajors : student.majors});
-export const adminRows = (state: BoardState, departments: Department[], filter = 'all') => state.students.flatMap(student => requiredRoadmaps(effectiveStudent(student), departments).filter(({department}) => filter === 'all' || department.id === filter).map(({department,role}) => {
-  const app = state.applications.find(a => a.studentId === student.id && a.departmentId === department.id);
-  const professor = state.professors.find(p => p.id === app?.professorId);
-  const index = progressIndex(student.id,department,state.applications,state.submissions);
-  const reason = !app ? (department.method === 'course_assigned' ? '수업 배정 대기' : '미신청') : app.adminReview === '검토 완료' ? '확정' : app.adminReview === '보완 요청' ? '보완 요청' : app.status === '승인' ? '확정 검토 대기' : app.status === '대기' && professor && !canApprove(department,professor) ? '정원 마감' : app.status;
-  return {student,department,role,app,professor,index,reason};
-}));
-
-export type BoardCommand =
- | {type:'contact'; studentId:string; departmentId:string; professorId:string}
- | {type:'request'; studentId:string; departmentId:string; professorId:string; topic:string; plan:string}
- | {type:'decide'; id:string; status:ApplicationStatus; feedback?:string}
- | {type:'review'; id:string; status:ReviewStatus; feedback?:string}
- | {type:'assign'; studentId:string; departmentId:string; professorId:string}
- | {type:'submit'; studentId:string; departmentId:string; stageId:string};
-
-// Pure transition: caller supplies time/ID; rejected commands preserve state.
-export function transition(state: BoardState, departments: Department[], command: BoardCommand, at:string, id:string): BoardState {
-  const record = (patch:Partial<BoardState>, actor:string, detail:string) => ({...state,...patch,histories:[...state.histories,{id,at,actor,detail}]});
-  if (command.type === 'decide' || command.type === 'review') {
-    const app = state.applications.find(a=>a.id===command.id); if (!app) return state;
-    const d=departments.find(d=>d.id===app.departmentId), p=state.professors.find(p=>p.id===app.professorId);
-    if(!d || !p || !validFeedback(command.status,command.feedback)) return state;
-    if(command.type==='decide') {
-      if(app.status==='승인' || command.status==='대기' || (command.status==='승인' && !canApprove(d,p))) return state;
-      return record({applications:state.applications.map(a=>a.id===app.id?{...a,status:command.status,feedback:command.feedback?.trim(),adminReview:'미검토'}:a),professors:state.professors.map(item=>item.id===p.id && command.status==='승인' && d.usesCapacity?{...item,assigned:item.assigned+1}:item)},p.name,app.studentId+' · '+d.name+' 신청 '+command.status);
+}
+export type Command =
+  | {type:'saveDraft' | 'sendApplication' | 'sendSubmission'; draft:Draft}
+  | {type:'decide'; id:string; status:Application['status']; feedback:string; slots?:string[]; location?:string}
+  | {type:'editFeedback'; target:'application' | 'submission'; id:string; text:string}
+  | {type:'selectSlot'; id:string; slot:string}
+  | {type:'completeMeeting'; id:string}
+  | {type:'review'; id:string; status:'승인' | '수정 요청'; feedback:string}
+  | {type:'capacity'; capacity:number; available:boolean; year:number}
+  | {type:'saveProcedure' | 'publishProcedure'; department:Department}
+  | {type:'saveNotice' | 'publishNotice'; notice:Notice}
+  | {type:'completeStep'; departmentId:string; stageId:string}
+  | {type:'enroll'; sectionId:string}
+  | {type:'readNotification'; id:string};
+export interface Result { state: BoardState; error?: string; }
+export function transition(state: BoardState, actor: Actor, command: Command, at: string, id: string): Result {
+  const student = actor.role === 'student' ? state.students.find(s => s.id === actor.id) : undefined;
+  const professor = actor.role === 'professor' ? state.professors.find(p => p.id === actor.id) : undefined;
+  const assistant = actor.role === 'assistant' ? state.assistants.find(a => a.id === actor.id) : undefined;
+  const reject = (error = '이 작업을 처리할 권한이 없거나 현재 상태에서 실행할 수 없습니다.'): Result => ({state,error});
+  if(!student && !professor && !assistant) return reject();
+  const name = student?.name ?? professor?.name ?? assistant!.name;
+  const notes: {recipientId:string;text:string;href:string}[] = [];
+  const studentLink = (dept:string) => '/student?department='+dept;
+  const notify = (recipientId:string,text:string,href:string) => notes.push({recipientId,text,href});
+  const finish = (patch:Partial<BoardState>, detail:string): Result => ({state:{...state,...patch,
+    histories:[...state.histories,{id,actor:name,at,detail}],
+    notifications:[...state.notifications,...notes.map((n,i)=>({...n,id:id+'-'+i,at,read:false}))],
+  }});
+  const feedback = (text:string, old?:Feedback): Feedback => ({text:text.trim(),at:old?.at ?? at,editedAt:old ? at : undefined,history:old ? [...old.history,{text:old.text,at:old.editedAt ?? old.at}] : []});
+  if(command.type === 'readNotification') {
+    const n=state.notifications.find(n=>n.id===command.id && n.recipientId===actor.id);
+    return n ? {state:{...state,notifications:state.notifications.map(v=>v.id===n.id?{...v,read:true}:v)}} : reject();
+  }
+  if(command.type === 'capacity') {
+    if(!professor) return reject();
+    if(!Number.isInteger(command.capacity) || command.capacity < approvedCount(state,professor)) return reject('정원은 현재 승인 인원보다 작을 수 없습니다.');
+    if(!Number.isInteger(command.year) || command.year < 2026 || command.year > 2100) return reject('학년도를 확인해 주세요.');
+    return finish({professors:state.professors.map(p=>p.id===professor.id?{...p,capacity:command.capacity,available:command.available,year:command.year}:p)},'학년도 지도 정원·모집 상태 변경');
+  }
+  if(command.type === 'saveProcedure' || command.type === 'publishProcedure') {
+    const incoming=command.department;
+    if(!assistant || assistant.departmentId!==incoming.id) return reject();
+    const old=state.departments.find(d=>d.id===incoming.id); if(!old)return reject();
+    // Only procedure fields are writable. In particular, enrollment/advisor/professor records are not.
+    const d:Department={...old,semester:incoming.semester,graduationSemester:incoming.graduationSemester,method:incoming.method,stages:structuredClone(incoming.stages)};
+    if(d.stages.some(s=>!validFile(s.file)))return reject('서식은 512KB 이하 PDF/DOCX만 가능합니다.');
+    if(command.type==='saveProcedure') return finish({procedureDrafts:{...state.procedureDrafts,[d.id]:d},procedureSavedAt:{...state.procedureSavedAt,[d.id]:at}},'절차 임시저장');
+    if(d.method==='course')d.stages=d.stages.filter(s=>!['application','approval'].includes(s.kind));
+    const error=validateProcedure(d);if(error)return reject(error);
+    d.stages=d.stages.map(step=>{const before=old.stages.find(s=>s.id===step.id);return {...step,changedAt:before && (before.dueDate!==step.dueDate || before.startDate!==step.startDate)?at:before?.changedAt};});
+    d.publishedAt=at;
+    state.students.filter(s=>s.majors.some(m=>m.departmentId===d.id)).forEach(s=>notify(s.id,d.name+' 절차가 변경되었습니다.',studentLink(d.id)));
+    return finish({departments:state.departments.map(v=>v.id===d.id?d:v),procedureDrafts:{...state.procedureDrafts,[d.id]:d},procedureSavedAt:{...state.procedureSavedAt,[d.id]:at}},d.name+' 절차 게시');
+  }
+  if(command.type==='saveNotice' || command.type==='publishNotice') {
+    const n=command.notice;
+    if(!assistant || assistant.departmentId!==n.departmentId || !validFile(n.file))return reject();
+    const d=state.departments.find(d=>d.id===n.departmentId)!;
+    if(command.type==='saveNotice')return finish({noticeDrafts:{...state.noticeDrafts,[assistant.id]:{...n,savedAt:at}}},'공지 임시저장');
+    if(!n.title.trim() || !n.body.trim() || !n.semester || (n.stageId && !d.stages.some(s=>s.id===n.stageId)) || (n.eventAt && !Number.isFinite(Date.parse(n.eventAt))))return reject('공지 제목·본문·학기와 연결 단계를 확인해 주세요.');
+    const published={...n,id:n.id || id,publishedAt:at,savedAt:at};
+    state.students.filter(s=>noticeMatches(published,s,d)).forEach(s=>notify(s.id,'새 공지: '+n.title,studentLink(d.id)+'#notices'));
+    return finish({notices:[...state.notices.filter(v=>v.id!==published.id),published],noticeDrafts:{...state.noticeDrafts,[assistant.id]:published}},'공지 게시');
+  }
+  if(command.type==='saveDraft' || command.type==='sendApplication' || command.type==='sendSubmission') {
+    const draft=command.draft,d=state.departments.find(d=>d.id===draft.departmentId);
+    if(!student || draft.studentId!==student.id || !d || !majorRole(student,d.id) || !validFile(draft.file))return reject('학생·전공 또는 파일 형식을 확인해 주세요.');
+    const isApplication=draft.stageId==='application', app=applicationFor(state,student.id,d.id);
+    const sub=latestSubmission(state,student.id,d.id,draft.stageId);
+    if(isApplication && (d.method!=='application' || app && !['수정 요청','반려'].includes(app.status)))return reject('제출 후에는 읽기 전용입니다. 수정 요청 때 다시 편집할 수 있습니다.');
+    if(!isApplication && sub && sub.status!=='수정 요청')return reject('검토 중이거나 승인된 제출물은 편집할 수 없습니다.');
+    if(command.type==='saveDraft') {
+      const saved={...draft,id:draftKey(student.id,d.id,draft.stageId),savedAt:at};
+      return finish({drafts:[...state.drafts.filter(v=>v.id!==saved.id),saved]},'작성 내용 임시저장');
     }
-    if(app.status!=='승인' || app.adminReview==='검토 완료' || command.status==='미검토') return state;
-    return record({applications:state.applications.map(a=>a.id===app.id?{...a,adminReview:command.status,feedback:command.feedback?.trim() || a.feedback}:a)},'행정실',app.studentId+' · '+d.name+' '+command.status);
+    if(!draft.title.trim() || (!draft.body.trim() && !draft.file))return reject('제목과 본문 또는 PDF/DOCX 파일을 입력해 주세요.');
+    const current=progress(state,student,d).current;
+    if(command.type==='sendApplication') {
+      const p=state.professors.find(p=>p.id===draft.professorId && p.departmentId===d.id);
+      if(!isApplication || !p || !canApply(state,p))return reject('모집이 마감되었거나 정원이 가득 찼습니다.');
+      if(!draft.summary.trim())return reject('연구 방향 요약을 입력해 주세요.');
+      if(!current || !['application','approval'].includes(current.kind))return reject('앞선 절차를 먼저 완료해 주세요.');
+      if(app?.status==='수정 요청' && app.professorId!==p.id)return reject('수정 요청은 기존 교수에게 재제출해 주세요.');
+      const a:Application={...draft,id:app?.status==='수정 요청'?app.id:id,status:'제출됨',requestedAt:at,feedback:app?.status==='수정 요청'?app.feedback:undefined};
+      notify(p.id,student.name+' 지도 신청이 제출되었습니다.','/professor?tab=applications');
+      return finish({applications:[...state.applications.filter(v=>v.id!==a.id),a],drafts:state.drafts.filter(v=>v.id!==draftKey(student.id,d.id,'application'))},'지도 신청 제출');
+    }
+    const advisor=advisorFor(state,student,d);
+    if(!advisor || !current || current.id!==draft.stageId || !['plan','final'].includes(current.kind))return reject('지도교수 확정 후 현재 단계에서 제출해 주세요.');
+    if(current.kind==='final' && !draft.file)return reject('최종논문 PDF/DOCX 파일이 필요합니다.');
+    const submission:Submission={id,studentId:student.id,departmentId:d.id,stageId:current.id,professorId:advisor.id,kind:current.kind as 'plan'|'final',title:draft.title,body:draft.body,file:draft.file,version:(sub?.version??0)+1,status:'제출됨',submittedAt:at};
+    notify(advisor.id,student.name+' '+current.name+' 제출','/professor?tab='+current.kind);
+    return finish({submissions:[...state.submissions,submission],drafts:state.drafts.filter(v=>v.id!==draftKey(student.id,d.id,current.id))},current.name+' v'+submission.version+' 제출');
   }
-  const student=state.students.find(s=>s.id===command.studentId), department=departments.find(d=>d.id===command.departmentId);
-  if(!student || !department || !requiredRoadmaps(effectiveStudent(student),departments).some(r=>r.department.id===department.id)) return state;
-  if(command.type==='submit') {
-    const index=progressIndex(student.id,department,state.applications,state.submissions);
-    const stage=department.stages[index];
-    if(!stage || stage.id!==command.stageId || stage.id==='advisor') return state;
-    return record({submissions:[...state.submissions,{studentId:student.id,departmentId:department.id,stageId:stage.id,at}]},student.name,department.name+' · '+stage.name+' 제출 상태 기록');
+  if(command.type==='decide') {
+    const a=state.applications.find(a=>a.id===command.id);
+    if(!professor || !a || a.professorId!==professor.id || ['승인','반려'].includes(a.status) || command.status==='제출됨')return reject();
+    if(['수정 요청','반려','면담 요청'].includes(command.status) && !command.feedback.trim())return reject('학생에게 전달할 피드백을 입력해 주세요.');
+    if(command.status==='승인' && approvedCount(state,professor)>=professor.capacity)return reject('정원 마감: 승인할 수 없습니다.');
+    let meetings=state.meetings;
+    if(command.status==='면담 요청') {
+      const slots=[...new Set(command.slots??[])].sort();
+      if(!slots.length || slots.some(t=>!/^\d{4}-\d{2}-\d{2}T\d{2}:(00|30)$/.test(t) || !Number.isFinite(Date.parse(t)) || Date.parse(t)<=Date.parse(at)))return reject('미래의 30분 단위 가능 시간을 하나 이상 선택해 주세요.');
+      meetings=[...meetings.filter(m=>m.applicationId!==a.id),{id,applicationId:a.id,studentId:a.studentId,professorId:professor.id,departmentId:a.departmentId,slots,status:'시간 제안됨',location:command.location??''}];
+    }
+    notify(a.studentId,'지도 신청 '+command.status,studentLink(a.departmentId)+'#advisor');
+    return finish({applications:state.applications.map(v=>v.id===a.id?{...v,status:command.status,feedback:command.feedback.trim()?feedback(command.feedback,a.feedback):a.feedback}:v),meetings},'지도 신청 '+command.status);
   }
-  const professor=state.professors.find(p=>p.id===command.professorId && p.departmentId===department.id); if(!professor)return state;
-  const app=state.applications.find(a=>a.studentId===student.id && a.departmentId===department.id);
-  if(command.type==='contact') {
-    if(department.method!=='contact_approval' || state.contacts.some(c=>c.studentId===student.id && c.professorId===professor.id))return state;
-    return record({contacts:[...state.contacts,{studentId:student.id,departmentId:department.id,professorId:professor.id,at}]},student.name,department.name+' · '+professor.name+' 컨택 완료');
+  if(command.type==='editFeedback') {
+    const target=command.target==='application'?state.applications:state.submissions;
+    const item=target.find(v=>v.id===command.id);
+    if(!professor || !item || item.professorId!==professor.id || !item.feedback || !command.text.trim())return reject('수정할 피드백을 입력해 주세요.');
+    notify(item.studentId,'교수 피드백이 수정되었습니다.',studentLink(item.departmentId));
+    const patch=command.target==='application'?{applications:state.applications.map(a=>a.id===item.id?{...a,feedback:feedback(command.text,a.feedback)}:a)}:{submissions:state.submissions.map(s=>s.id===item.id?{...s,feedback:feedback(command.text,s.feedback)}:s)};
+    return finish(patch,'피드백 수정 (이전 내용 보관)');
   }
-  if(command.type==='assign') {
-    if(department.method!=='course_assigned' || app)return state;
-  } else {
-    if(department.method==='course_assigned' || !canApply(department,professor) || !command.topic.trim() || !command.plan.trim() || app && !['수정 요청','면담 요청','반려'].includes(app.status))return state;
-    if(department.method==='contact_approval' && !state.contacts.some(c=>c.studentId===student.id && c.professorId===professor.id))return state;
+  if(command.type==='selectSlot' || command.type==='completeMeeting') {
+    const m=state.meetings.find(m=>m.id===command.id);if(!m)return reject();
+    if(command.type==='selectSlot') {
+      if(!student || student.id!==m.studentId || m.status!=='시간 제안됨' || !m.slots.includes(command.slot) || Date.parse(command.slot)<=Date.parse(at))return reject('제안된 미래 시간 중 하나를 선택해 주세요.');
+      if(state.meetings.some(v=>v.id!==m.id && v.status==='확정' && v.selected===command.slot && (v.professorId===m.professorId || v.studentId===student.id)))return reject('이미 확정된 면담과 겹칩니다. 다른 시간을 선택해 주세요.');
+      notify(m.professorId,student.name+' 면담 시간이 확정되었습니다.','/professor?tab=meetings');
+      notify(student.id,'면담 시간이 확정되었습니다.',studentLink(m.departmentId)+'#meetings');
+      return finish({meetings:state.meetings.map(v=>v.id===m.id?{...v,selected:command.slot,status:'확정'}:v)},'면담 시간 선택·확정');
+    }
+    if(!professor || professor.id!==m.professorId || m.status!=='확정')return reject();
+    notify(m.studentId,'면담 완료가 기록되었습니다.',studentLink(m.departmentId));
+    return finish({meetings:state.meetings.map(v=>v.id===m.id?{...v,status:'완료'}:v)},'면담 완료');
   }
-  const assigned=command.type==='assign';
-  const application:Application={id:app?.id ?? id,studentId:student.id,departmentId:department.id,professorId:professor.id,topic:command.type==='request'?command.topic.trim():'수업 배정',plan:command.type==='request'?command.plan.trim():'수업에서 배정',status:assigned?'승인':'대기',adminReview:assigned?'검토 완료':'미검토',requestedAt:at,stageIndex:0};
-  return record({applications:[...state.applications.filter(a=>a.id!==app?.id),application]},assigned?'행정실':student.name,department.name+' · '+professor.name+' '+(assigned?'배정 완료':'승인 요청'));
+  if(command.type==='review') {
+    const sub=state.submissions.find(s=>s.id===command.id);
+    if(!professor || !sub || sub.professorId!==professor.id || sub.status!=='제출됨')return reject();
+    if(command.status==='수정 요청' && !command.feedback.trim())return reject('수정 요청 피드백을 입력해 주세요.');
+    notify(sub.studentId,(sub.kind==='final'?'최종논문':'연구계획서')+' '+command.status,studentLink(sub.departmentId)+'#documents');
+    return finish({submissions:state.submissions.map(s=>s.id===sub.id?{...s,status:command.status,feedback:command.feedback.trim()?feedback(command.feedback):undefined}:s)},'제출물 '+command.status);
+  }
+  if(command.type==='completeStep') {
+    const d=state.departments.find(d=>d.id===command.departmentId);
+    if(!student || !d)return reject();
+    const current=progress(state,student,d).current;
+    if(current?.id!==command.stageId || current.kind!=='task')return reject();
+    return finish({completions:[...state.completions,{studentId:student.id,departmentId:d.id,stageId:current.id,at}]},current.name+' 완료 기록');
+  }
+  if(command.type==='enroll') {
+    const section=state.sections.find(c=>c.id===command.sectionId),d=state.departments.find(d=>d.id===section?.departmentId);
+    if(!student || !section || !d || d.method!=='course')return reject();
+    const current=progress(state,student,d).current;
+    if(!majorRole(student,d.id) || current?.kind!=='course' || current.courseId!==section.courseId || student.enrollmentIds.includes(section.id))return reject();
+    return finish({students:state.students.map(s=>s.id===student.id?{...s,enrollmentIds:[...s.enrollmentIds,section.id]}:s)},'학생 수강 분반 선택');
+  }
+  return reject();
 }

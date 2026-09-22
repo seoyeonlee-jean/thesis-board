@@ -1,47 +1,32 @@
 "use client";
-import { create } from "zustand";
-import { persist } from "zustand/middleware";
-import { createSeed, demoStudentId } from "@/data/seed";
-import { departments } from "@/data/departments";
-import { canSetCapacity, transition, type BoardCommand } from "./rules";
-import type { ApplicationStatus, BoardState, ReviewStatus, Role } from "./types";
-
+import {create} from 'zustand';
+import {persist} from 'zustand/middleware';
+import {createSeed} from '@/data/seed';
+import {transition, type Command} from './rules';
+import type {Actor, BoardState} from './types';
 type Store = BoardState & {
-  activeStudentId: string;
-  chooseStudent: (id:string) => void;
-  selectMajors: (majors: { departmentId: string; role: Role }[]) => void;
-  recordContact: (departmentId:string,professorId:string) => boolean;
-  requestApproval: (departmentId:string,professorId:string,topic?:string,plan?:string) => boolean;
-  decideApplication: (id:string,status:ApplicationStatus,feedback?:string) => boolean;
-  reviewApplication: (id:string,status:ReviewStatus,feedback?:string) => boolean;
-  assignCourseAdvisor: (studentId:string,departmentId:string,professorId:string) => boolean;
-  submitStage: (departmentId:string,stageId:string) => boolean;
-  setCapacity: (professorId:string,capacity:number) => boolean;
-  reset: () => void;
+  studentId:string; professorId:string; assistantId:string; error:string;
+  choose:(role:Actor['role'],id:string)=>void;
+  act:(actor:Actor,command:Command)=>boolean;
+  clearError:()=>void; reset:()=>void;
 };
-const history = (actor:string,detail:string) => ({id:crypto.randomUUID(),actor,detail,at:new Date().toISOString()});
-export const useBoardStore = create<Store>()(persist((set,get) => {
-  const dispatch = (command:BoardCommand) => {
-    const before=get(), after=transition(before,departments,command,new Date().toISOString(),crypto.randomUUID());
-    if(after===before)return false; set(after); return true;
-  };
-  return {...createSeed(),activeStudentId:demoStudentId,
-    chooseStudent: id => {if(get().students.some(s=>s.id===id))set({activeStudentId:id});},
-    selectMajors: majors => {
-      if(majors.filter(m=>m.role==='primary').length!==1 || new Set(majors.map(m=>m.departmentId)).size!==majors.length || majors.some(m=>!departments.some(d=>d.id===m.departmentId)))return;
-      set(state=>({students:state.students.map(s=>s.id===state.activeStudentId?{...s,majors,selectedMajors:majors}:s),histories:[...state.histories,history(state.students.find(s=>s.id===state.activeStudentId)!.name,'전공별 로드맵 생성')]}));
-    },
-    recordContact:(departmentId,professorId)=>dispatch({type:'contact',studentId:get().activeStudentId,departmentId,professorId}),
-    requestApproval:(departmentId,professorId,topic='학습 과정에서의 기억 형성',plan='가상 연구계획 요약입니다.')=>dispatch({type:'request',studentId:get().activeStudentId,departmentId,professorId,topic,plan}),
-    decideApplication:(id,status,feedback)=>dispatch({type:'decide',id,status,feedback}),
-    reviewApplication:(id,status,feedback)=>dispatch({type:'review',id,status,feedback}),
-    assignCourseAdvisor:(studentId,departmentId,professorId)=>dispatch({type:'assign',studentId,departmentId,professorId}),
-    submitStage:(departmentId,stageId)=>dispatch({type:'submit',studentId:get().activeStudentId,departmentId,stageId}),
-    setCapacity:(professorId,capacity)=>{
-      const p=get().professors.find(p=>p.id===professorId);
-      if(!p || !departments.find(d=>d.id===p.departmentId)?.usesCapacity || !canSetCapacity(p,capacity) || p.capacity===capacity)return false;
-      set(s=>({professors:s.professors.map(p=>p.id===professorId?{...p,capacity}:p),histories:[...s.histories,history(p.name,'지도 정원 '+capacity+'명으로 변경')]})); return true;
-    },
-    reset:()=>set({...createSeed(),activeStudentId:demoStudentId})
-  };
-}, {name:'graduation-thesis-board'}));
+const selection={studentId:'student-1',professorId:'prof-psych',assistantId:'assistant-psych'};
+export const useBoardStore=create<Store>()(persist((set,get)=>({
+  ...createSeed(),...selection,error:'',
+  choose:(role,id)=>set(role==='student'?{studentId:id}:role==='professor'?{professorId:id}:{assistantId:id}),
+  clearError:()=>set({error:''}),
+  act:(actor,command)=>{
+    const result=transition(get(),actor,command,new Date().toISOString(),crypto.randomUUID());
+    if(result.error){set({error:result.error});return false;}
+    const serialized=JSON.stringify({state:{...result.state,error:''},version:2});
+    if(serialized.length>3_000_000){set({error:'브라우저 데모 저장 한도를 초과했습니다. 첨부 크기를 줄여 주세요.'});return false;}
+    try {
+      if(typeof window!=='undefined')window.localStorage.setItem('thesis-board-v2',serialized);
+      set({...result.state,error:''});return true;
+    } catch {set({error:'브라우저 저장 공간이 부족하거나 저장이 차단되었습니다. 파일을 줄이거나 저장 설정을 확인해 주세요.'});return false;}
+  },
+  reset:()=>{
+    if(typeof window!=='undefined')Object.keys(localStorage).filter(key=>key.startsWith('thesis-form-')).forEach(key=>localStorage.removeItem(key));
+    set({...createSeed(),...selection,error:''});
+  },
+}),{name:'thesis-board-v2',version:2,partialize:({error:_,...state})=>state}));

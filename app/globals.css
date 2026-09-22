@@ -4,7 +4,7 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; background: #f7f8fc; color: #172033; font-family: Arial, "Apple SD Gothic Neo", sans-serif; }
-button, input, select { font: inherit; }
+button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: .45; }
 .card { @apply rounded-2xl border border-slate-200 bg-white p-5 shadow-sm; }
@@ -12,3 +12,17 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .btn { @apply rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-700; }
 .btn-alt { @apply rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50; }
 .badge { @apply inline-flex rounded-full px-2.5 py-1 text-xs font-bold; }
+.section-title { @apply text-lg font-extrabold; }
+.field-label { @apply block text-sm font-bold text-slate-600; }
+.field-label input:not([type=checkbox]):not([type=file]), .field-label select, .field-label textarea { @apply mt-1 block w-full min-w-0 rounded-lg border border-slate-300 bg-white p-2 font-normal text-slate-900; }
+select, input[type=month] { max-width: 100%; }
+textarea { resize: vertical; }
+input[type=checkbox] { accent-color: #4f46e5; }
+.roadmap { @apply relative ml-3 space-y-4 border-l-2 border-slate-200 pl-6; }
+.roadmap-step { @apply relative; scroll-margin-top: 20px; }
+.roadmap-node { @apply absolute -left-[39px] top-4 flex h-7 w-7 items-center justify-center rounded-full border-4 border-white text-xs; }
+.meeting-grid { display: grid; gap: 4px; align-items: center; }
+.slot { min-height: 28px; border-radius: 4px; touch-action: pan-y; }
+.slot:disabled { opacity: .25; }
+main, section, article, aside { min-width: 0; }
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid #4f46e5; outline-offset: 3px; }
