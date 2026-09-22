@@ -27,3 +27,15 @@ input[type=checkbox] { accent-color: #0f0f70; }
 main, section, article, aside { min-width: 0; }
 button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid #0f0f70; outline-offset: 3px; }
 [hidden] { display: none !important; }
+
+/* Student surfaces use SNU Blue; department hues are secondary calendar markers. */
+.student-board .section-title, .student-board h1 { @apply text-snu; }
+.student-board .card { @apply border-snu-300; }
+.student-board .student-next-action .badge { @apply border-white/30 bg-white/10 text-white; }
+.student-board .student-next-button:focus-visible { outline-color: white; }
+.student-board .roadmap { @apply border-snu-300; }
+.student-board .roadmap-step[data-status="진행 중"] > .roadmap-node { @apply bg-snu text-white; }
+.student-board .roadmap-step[data-status="진행 중"] > details { @apply border-snu bg-snu-50; }
+.student-board .roadmap-step[data-status="진행 중"] > details > summary { @apply text-snu; }
+.student-board .roadmap-step[data-status="진행 중"] > details > summary .badge:not(.bg-amber-50),
+.student-board .roadmap-step[data-status="예정"] > details > summary .badge:not(.bg-amber-50) { @apply border-snu-300 bg-snu-50 text-snu; }

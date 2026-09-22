@@ -8,7 +8,7 @@ export const areaForTarget = (target:string):StudentArea =>
  studentAreas.some(([id])=>id===target)?target as StudentArea:'roadmap';
 
 export function StudentTabs({value,onChange}:{value:StudentArea;onChange:(id:StudentArea)=>void}){
- return <div role="tablist" aria-label="학생 업무" className="flex gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2">
+ return <div role="tablist" aria-label="학생 업무" className="flex gap-2 overflow-x-auto rounded-2xl border border-snu-300 bg-snu-100 p-2">
   {studentAreas.map(([id,label],index)=><button key={id} type="button" role="tab" id={'student-tab-'+id}
    aria-selected={value===id} aria-controls={'student-panel-'+id} tabIndex={value===id?0:-1}
    className={'shrink-0 whitespace-nowrap '+(value===id?'btn':'btn-alt border-transparent')}

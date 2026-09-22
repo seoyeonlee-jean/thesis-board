@@ -7,7 +7,11 @@ for(const width of [1440,375])test('학생 영역 탭·SNU Blue·초안 보존 '
  await expect(tabs.getByRole('tab')).toHaveCount(6);
  await expect(page.getByRole('tabpanel')).toHaveCount(1);
  await expect(tabs.getByRole('tab',{name:'로드맵',exact:true})).toHaveCSS('background-color','rgb(15, 15, 112)');
- await expect(page.getByLabel('다음 할 일').getByRole('button')).toHaveCSS('background-color','rgb(15, 15, 112)');
+ await expect(page.getByLabel('다음 할 일')).toHaveCSS('background-color','rgb(15, 15, 112)');
+ await expect(page.getByLabel('다음 할 일')).toHaveCSS('color','rgb(255, 255, 255)');
+ await expect(page.getByLabel('다음 할 일').getByRole('button')).toHaveCSS('background-color','rgb(255, 255, 255)');
+ await expect(page.getByRole('tab',{name:'심리학과',exact:true})).toHaveCSS('background-color','rgb(15, 15, 112)');
+ await expect(page.locator('.roadmap-step[data-status="진행 중"] > .roadmap-node')).toHaveCSS('background-color','rgb(15, 15, 112)');
  await noOverflow(page);await page.screenshot({path:info.outputPath('student-roadmap.png'),fullPage:true});
  await page.getByLabel('다음 할 일').getByRole('button').click();
  await expect(tabs.getByRole('tab',{name:'지도교수',exact:true})).toHaveAttribute('aria-selected','true');
