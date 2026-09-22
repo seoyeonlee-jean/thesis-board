@@ -1,6 +1,6 @@
 # 샤논 — 졸업논문 진행 관리
 
-학생·교수·학과 조교가 같은 브라우저에서 진행 상태를 공유하는 데모입니다. 기본 화면은 사용자가 제공한 `codex_revision_spec.md`를, 학과 절차는 추가 제공한 [snu_thesis_procedures_for_service.md](docs/departments/snu-thesis-procedures.md)를 기준으로 합니다. 초기 AGENTS.md 및 docs/student.md·professor.md·admin.md와 충돌하는 역할·승인 규칙은 아래 새 명세 해석을 우선했습니다. 초기 문서는 원문 기록으로 보존했습니다.
+학생·교수·학과 조교가 같은 브라우저에서 진행 상태를 공유하는 데모입니다. 기본 화면은 사용자가 제공한 `codex_revision_spec.md`를, 학과 절차는 추가 제공한 [snu_thesis_procedures_for_service.md](docs/departments/snu-thesis-procedures.md)를 기준으로 합니다. 초기 AGENTS.md 및 docs/student.md·professor.md·admin.md와 충돌하는 역할·승인 규칙은 아래 새 명세 해석을 우선했습니다. 초기 문서는 원문 기록으로 보존
 
 ## 실행
 
