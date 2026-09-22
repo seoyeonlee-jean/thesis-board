@@ -3,16 +3,16 @@
 @tailwind utilities;
 
 * { box-sizing: border-box; }
-body { margin: 0; background: #f7f8fc; color: #172033; font-family: Arial, "Apple SD Gothic Neo", sans-serif; }
+body { margin: 0; background: #f5f5f2; color: #202a3c; font-family: "Apple SD Gothic Neo", "Malgun Gothic", Arial, sans-serif; -webkit-font-smoothing: antialiased; letter-spacing: -.025em; }
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: .45; }
-.card { @apply rounded-2xl border border-slate-200 bg-white p-5 shadow-sm; }
+.card { @apply border bg-white p-5; border-color: #dce0e6; border-radius: 10px; box-shadow: 0 3px 14px #18243c03; }
 .label { @apply text-xs font-bold uppercase tracking-wider text-slate-500; }
-.btn { @apply rounded-xl bg-snu px-4 py-2 text-sm font-bold text-white hover:bg-snu-dark; }
-.btn-alt { @apply rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50; }
+.btn { @apply rounded-md bg-snu px-4 py-2 text-sm font-bold text-white hover:bg-snu-dark; }
+.btn-alt { @apply rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50; }
 .badge { @apply inline-flex rounded-full px-2.5 py-1 text-xs font-bold; }
-.section-title { @apply text-lg font-extrabold; }
+.section-title { @apply text-lg font-bold; letter-spacing: -.035em; }
 .field-label { @apply block text-sm font-bold text-slate-600; }
 .field-label input:not([type=checkbox]):not([type=file]), .field-label select, .field-label textarea { @apply mt-1 block w-full min-w-0 rounded-lg border border-slate-300 bg-white p-2 font-normal text-slate-900; }
 select, input[type=month] { max-width: 100%; }
@@ -30,7 +30,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 
 /* Student surfaces use SNU Blue; department hues are secondary calendar markers. */
 .student-board .section-title, .student-board h1 { @apply text-snu; }
-.student-board .card { @apply border-snu-300; }
+.student-board .card { border-color: #dce0e6; }
 .student-board .student-next-action .badge { @apply border-white/30 bg-white/10 text-white; }
 .student-board .student-next-button:focus-visible { outline-color: white; }
 .student-board .roadmap { @apply border-snu-300; }
@@ -39,3 +39,50 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .student-board .roadmap-step[data-current="true"] > details > summary { @apply text-snu; }
 .student-board .roadmap-step[data-status="진행 중"] > details > summary .badge:not(.bg-amber-50),
 .student-board .roadmap-step[data-status="예정"] > details > summary .badge:not(.bg-amber-50) { @apply border-snu-300 bg-snu-50 text-snu; }
+
+/* Visual layer only: all navigation, state and form behavior stay unchanged. */
+.brand-symbol { mix-blend-mode: multiply; }
+body > header { border-top: 4px solid #0f0f70; border-bottom-color: #dce0e6; background: #fafaf7; }
+body > header > div { padding-top: 15px; padding-bottom: 12px; }
+body > header > div > div:first-child > a { font-size: 24px; letter-spacing: -.06em; }
+body > main:not(.landing) { padding-top: 24px; padding-bottom: 32px; }
+body > footer { padding-top: 20px; border-top: 1px solid #dce0e6; color: #6e7786; }
+button, a, input, select, textarea { transition: background-color .18s, border-color .18s, box-shadow .18s; }
+summary:focus-visible { outline: 2px solid #0f0f70; outline-offset: 4px; }
+[role="tablist"] { border-radius: 7px; background: #fff; border-color: #dce0e6; padding: 6px; box-shadow: 0 2px 8px #18243c03; }
+[role="tab"] { border-radius: 4px; }
+.student-board > header { border-radius: 8px; border: 1px solid #dce0e6; border-left: 3px solid #0f0f70; padding: 16px; }
+.student-board [aria-label="내 전공 요약"] > button { border-radius: 8px; padding: 16px; }
+.student-board [aria-label="내 전공 요약"] > button[aria-pressed="true"] { background: #eeeff5; box-shadow: none; }
+.roadmap details { border-radius: 8px; }
+.student-next-action { border-radius: 8px; box-shadow: none; }
+.field-label input:focus, .field-label select:focus, .field-label textarea:focus { border-color: #0f0f70; }
+
+.landing { max-width: 1200px; margin: auto; padding: 38px 32px 28px; }
+.landing-brand { display: flex; align-items: center; margin: 0; padding-bottom: 26px; border-bottom: 1px solid #cbd0d9; color: #0f0f70; font-size: 28px; font-weight: 800; letter-spacing: -.055em; }
+.landing-hero { position: relative; isolation: isolate; overflow: hidden; padding: 64px 56px 60px; margin-top: 24px; background: #111b48; color: white; border-top: 3px solid #b6a578; }
+.landing-hero::after { content: ''; position: absolute; z-index: -1; width: 330px; height: 440px; border: 1px solid #ffffff15; border-right: 28px solid #ffffff07; right: -70px; top: -70px; transform: rotate(28deg); }
+.landing h1 { margin: 0; font-size: clamp(30px,4vw,48px); font-weight: 600; line-height: 1.5; letter-spacing: -.055em; word-break: keep-all; }
+.landing-description { margin-top: 24px; max-width: 650px; color: #d4d9e7; font-size: 15px; line-height: 1.9; word-break: keep-all; }
+.landing-roles { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 20px; margin-top: 28px; }
+.landing-role { display: flex; flex-direction: column; position: relative; padding: 28px; border: 1px solid #dce0e6; border-top: 2px solid #0f0f70; background: #fff; transition: border-color .18s, box-shadow .18s; }
+.landing-role:hover { border-color: #0f0f70; box-shadow: 0 8px 24px #111b480b; }
+.landing-role .label { color: #6c7484; font-size: 11px; font-weight: 500; }
+.landing-role h2 { margin-top: 18px; font-size: 25px; font-weight: 700; color: #14244b; }
+.landing-role p:not(.label) { margin-top: 12px; font-size: 14px; line-height: 1.8; color: #657082; word-break: keep-all; }
+.landing-role span { margin-top: auto; padding-top: 28px; font-size: 13px; font-weight: 700; color: #0f0f70; }
+.landing-note { margin-top: 28px; padding-top: 18px; border-top: 1px solid #dce0e6; color: #687284; font-size: 12px; line-height: 1.8; }
+@media (max-width: 640px) {
+ .landing { padding: 24px 20px; }
+ .landing-brand { padding-bottom: 20px; font-size: 25px; }
+ .landing-hero { padding: 32px 24px; margin-top: 20px; }
+ .landing h1 { font-size: 29px; }
+ .landing-description { font-size: 14px; margin-top: 20px; }
+ .landing-roles { grid-template-columns: 1fr; gap: 12px; margin-top: 20px; }
+ .landing-role { padding: 22px; }
+ .landing-role h2 { margin-top: 10px; }
+ .landing-role span { padding-top: 20px; }
+ .student-board [aria-label="내 전공 요약"] > button { padding: 12px; }
+ body > main:not(.landing) { padding-top: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; scroll-behavior: auto !important; } }
