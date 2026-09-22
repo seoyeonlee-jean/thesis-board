@@ -10,7 +10,7 @@ for(const width of [1440,375])test('학생 영역 탭·SNU Blue·초안 보존 '
  await expect(page.getByRole('button',{name:'심리학과 전공 선택',exact:true})).toHaveAttribute('aria-pressed','true');
  await expect(page.locator('.roadmap-step[data-status="진행 중"] > .roadmap-node')).toHaveCSS('background-color','rgb(15, 15, 112)');
  await noOverflow(page);await page.screenshot({path:info.outputPath('student-roadmap.png'),fullPage:true});
- await page.locator('#step-apply').getByRole('button').click();await expect(page.getByLabel('지도교수 신청 안내')).toHaveCSS('background-color','rgb(15, 15, 112)');await page.getByLabel('지도교수 신청 안내').getByRole('button').click();
+ await page.locator('#step-apply summary').click();await page.locator('#step-apply').getByRole('button').click();await expect(page.getByLabel('지도교수 신청 안내')).toHaveCSS('background-color','rgb(15, 15, 112)');await page.getByLabel('지도교수 신청 안내').getByRole('button').click();
  await expect(tabs.getByRole('tab',{name:'지도교수',exact:true})).toHaveAttribute('aria-selected','true');
  await page.getByRole('button',{name:'서진우 교수 선택'}).click();await page.getByLabel('연구 제목',{exact:true}).fill('탭 이동 보존');
  await studentTab(page,'면담 일정');await expect(page.getByText('아직 제안된 면담이 없습니다.',{exact:false})).toBeVisible();
