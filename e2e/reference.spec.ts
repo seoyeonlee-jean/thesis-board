@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {studentTab,pdfFile,noOverflow} from './helpers';
 
 test('네 학과 자료·필참·출처와 외부 분반 표시',async({page},info)=>{
- await page.goto('/student');await page.getByText('데모 안내 · 일부 일정 가정',{exact:true}).click();await page.getByText('심리학과 자료·가정',{exact:true}).click();await expect(page.getByText('최신 매뉴얼과 공식 상세 링크는 정보 확인 필요',{exact:false})).toBeVisible();await page.getByText('데모 안내 · 일부 일정 가정',{exact:true}).click();
+ await page.goto('/student');await expect(page.getByText('데모 안내 · 일부 일정 가정',{exact:true})).toHaveCount(0);
  await expect(page.getByLabel('전공 로드맵').locator(':scope > li')).toHaveCount(5);
  await expect(page.getByText('예정값',{exact:true})).toHaveCount(0);
  await page.getByRole('button',{name:'중어중문학과 전공 선택',exact:true}).click();

@@ -114,10 +114,15 @@ export function transition(state: BoardState, actor: Actor, command: Command, at
   const notes: {recipientId:string;text:string;href:string}[] = [];
   const studentLink = (dept:string) => '/student?department='+dept;
   const notify = (recipientId:string,text:string,href:string) => notes.push({recipientId,text,href});
-  const finish = (patch:Partial<BoardState>, detail:string): Result => ({state:{...state,...patch,
-    histories:[...state.histories,{id,actor:name,at,detail}],
-    notifications:[...state.notifications,...notes.map((n,i)=>({...n,id:id+'-'+i,at,read:false}))],
-  }});
+  const finish = (patch:Partial<BoardState>, detail:string): Result => {
+    const next={...state,...patch,completions:[...(patch.completions??state.completions)]};
+    // Record the transition time, never substitute the request or deadline for completion.
+    for(const st of next.students)for(const d of next.departments)for(const step of stagesFor(st,d)) {
+      const beforeStudent=state.students.find(v=>v.id===st.id),beforeDept=state.departments.find(v=>v.id===d.id),beforeStep=beforeDept?.stages.find(v=>v.id===step.id);
+      if(beforeStudent&&beforeDept&&beforeStep&&!stageDone(state,beforeStudent,beforeDept,beforeStep)&&stageDone(next,st,d,step)&&!next.completions.some(v=>v.studentId===st.id&&v.departmentId===d.id&&v.stageId===step.id))next.completions.push({studentId:st.id,departmentId:d.id,stageId:step.id,at});
+    }
+    return {state:{...next,histories:[...state.histories,{id,actor:name,at,detail}],notifications:[...state.notifications,...notes.map((n,i)=>({...n,id:id+'-'+i,at,read:false}))]}};
+  };
   const feedback = (text:string, old?:Feedback): Feedback => ({text:text.trim(),at:old?.at ?? at,editedAt:old ? at : undefined,history:old ? [...old.history,{text:old.text,at:old.editedAt ?? old.at}] : []});
   if(command.type === 'readNotification') {
     const n=state.notifications.find(n=>n.id===command.id && n.recipientId===actor.id);
