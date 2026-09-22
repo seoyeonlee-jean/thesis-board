@@ -171,7 +171,7 @@ export function transition(state: BoardState, actor: Actor, command: Command, at
     const target=command.target==='application'?state.applications:state.submissions;
     const item=target.find(v=>v.id===command.id);
     if(!professor || !item || item.professorId!==professor.id || !item.feedback || !command.text.trim())return reject('수정할 피드백을 입력해 주세요.');
-    notify(item.studentId,'교수 피드백이 수정되었습니다.',studentLink(item.departmentId));
+    notify(item.studentId,'교수 피드백이 수정되었습니다.',studentLink(item.departmentId)+(command.target==='application'?'#advisor':'#documents'));
     const patch=command.target==='application'?{applications:state.applications.map(a=>a.id===item.id?{...a,feedback:feedback(command.text,a.feedback)}:a)}:{submissions:state.submissions.map(s=>s.id===item.id?{...s,feedback:feedback(command.text,s.feedback)}:s)};
     return finish(patch,'피드백 수정 (이전 내용 보관)');
   }
@@ -185,7 +185,7 @@ export function transition(state: BoardState, actor: Actor, command: Command, at
       return finish({meetings:state.meetings.map(v=>v.id===m.id?{...v,selected:command.slot,status:'확정'}:v)},'면담 시간 선택·확정');
     }
     if(!professor || professor.id!==m.professorId || m.status!=='확정')return reject();
-    notify(m.studentId,'면담 완료가 기록되었습니다.',studentLink(m.departmentId));
+    notify(m.studentId,'면담 완료가 기록되었습니다.',studentLink(m.departmentId)+'#meetings');
     return finish({meetings:state.meetings.map(v=>v.id===m.id?{...v,status:'완료'}:v)},'면담 완료');
   }
   if(command.type==='review') {

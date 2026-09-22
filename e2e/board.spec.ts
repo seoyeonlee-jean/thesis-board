@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {pdfFile,studentApplication,noOverflow} from './helpers';
+import {pdfFile,studentApplication,noOverflow,studentTab} from './helpers';
 for(const width of [1440,375])test('2차 명세 전체 시나리오 '+width+'px',async({page},info)=>{
  test.setTimeout(120000);await page.setViewportSize({width,height:900});await page.clock.setFixedTime(new Date('2026-09-22T09:00:00+09:00'));
  await page.goto('/admin');
@@ -31,9 +31,9 @@ for(const width of [1440,375])test('2차 명세 전체 시나리오 '+width+'px'
  await page.getByLabel('면담 장소 또는 온라인 링크').fill('가상 연구실 101호');
  await page.getByRole('button',{name:'면담 시간 제안 보내기'}).click();
  await page.getByRole('link',{name:'학생',exact:true}).click();
- await page.getByRole('button',{name:'2026-10-02T14:00',exact:true}).click();await page.getByRole('button',{name:'선택 시간 확정'}).click();
+ await page.getByLabel('다음 할 일').getByRole('button').click();await page.getByRole('button',{name:'2026-10-02T14:00',exact:true}).click();await page.getByRole('button',{name:'선택 시간 확정'}).click();
  await expect(page.getByText('면담 확정:',{exact:false})).toBeVisible();
- await expect(page.getByLabel('월간 일정').getByRole('button',{name:'면담 확정',exact:true})).toBeVisible();
+ await studentTab(page,'캘린더');await expect(page.getByLabel('월간 일정').getByRole('button',{name:'면담 확정',exact:true})).toBeVisible();
  await noOverflow(page);await page.screenshot({path:info.outputPath('student-meeting.png'),fullPage:true});
  await page.getByRole('button',{name:'타임라인 보기'}).click();await expect(page.getByLabel('간트 일정')).toBeVisible();await noOverflow(page);await page.screenshot({path:info.outputPath('student-timeline.png'),fullPage:true});
  await page.getByRole('link',{name:'교수',exact:true}).click();
@@ -43,20 +43,20 @@ for(const width of [1440,375])test('2차 명세 전체 시나리오 '+width+'px'
  await page.getByRole('button',{name:'피드백 수정',exact:true}).click();await page.getByLabel('수정할 피드백').fill('승인했습니다. 연구계획에 실험 조건을 보완해 주세요.');await page.getByRole('button',{name:'피드백 수정 저장'}).click();
  await noOverflow(page);await page.screenshot({path:info.outputPath('professor.png'),fullPage:true});
  await page.getByRole('link',{name:'학생',exact:true}).click();await expect(page.getByLabel('다음 할 일').getByRole('heading')).toHaveText('연구계획서 제출');
- await expect(page.getByText('수정됨 ·',{exact:false})).toBeVisible();
+ await studentTab(page,'지도교수');await expect(page.getByText('수정됨 ·',{exact:false})).toBeVisible();
  await page.getByLabel('알림',{exact:true}).click();await expect(page.getByLabel('알림 목록').getByText('교수 피드백이 수정되었습니다.',{exact:false})).toBeVisible();await page.getByLabel('알림',{exact:true}).click();
- await page.getByLabel('제출물 제목').fill('연구계획 v1');await page.getByLabel('제출물 본문').fill('실험 조건과 일정');
+ await studentTab(page,'연구계획·논문');await page.getByLabel('제출물 제목').fill('연구계획 v1');await page.getByLabel('제출물 본문').fill('실험 조건과 일정');
  await page.getByRole('button',{name:'임시저장',exact:true}).click();await page.reload();await expect(page.getByLabel('제출물 본문')).toHaveValue('실험 조건과 일정');await page.getByRole('button',{name:'제출물 제출',exact:true}).click();
  await page.getByRole('link',{name:'교수',exact:true}).click();await page.getByRole('tab',{name:'연구계획서 검토',exact:true}).click();await page.getByRole('button',{name:'제출물 승인',exact:true}).click();
  await page.getByRole('link',{name:'학생',exact:true}).click();await page.getByRole('button',{name:'단계 완료 기록',exact:true}).click();
- await page.getByLabel('제출물 제목').fill('최종논문 v1');await page.getByLabel('제출 파일',{exact:true}).setInputFiles(pdfFile);await expect(page.getByText('research.pdf',{exact:true})).toBeVisible();await page.getByRole('button',{name:'제출물 제출',exact:true}).click();
+ await studentTab(page,'연구계획·논문');await page.getByLabel('제출물 제목').fill('최종논문 v1');await page.getByLabel('제출 파일',{exact:true}).setInputFiles(pdfFile);await expect(page.getByText('research.pdf',{exact:true})).toBeVisible();await page.getByRole('button',{name:'제출물 제출',exact:true}).click();
  await page.getByRole('link',{name:'교수',exact:true}).click();await page.getByRole('tab',{name:'최종논문 검토',exact:true}).click();
  await page.getByRole('button',{name:'research.pdf 열기'}).click();await expect(page.getByTitle('research.pdf 미리보기')).toBeVisible();
  await page.getByLabel('검토 피드백').fill('참고문헌을 보완해 주세요.');await page.getByRole('button',{name:'제출물 수정 요청'}).click();
- await page.getByRole('link',{name:'학생',exact:true}).click();await page.getByLabel('제출 파일',{exact:true}).setInputFiles({...pdfFile,name:'revision.pdf'});await expect(page.getByText('revision.pdf',{exact:true})).toBeVisible();await page.getByRole('button',{name:'제출물 재제출'}).click();
+ await page.getByRole('link',{name:'학생',exact:true}).click();await studentTab(page,'연구계획·논문');await page.getByLabel('제출 파일',{exact:true}).setInputFiles({...pdfFile,name:'revision.pdf'});await expect(page.getByText('revision.pdf',{exact:true})).toBeVisible();await page.getByRole('button',{name:'제출물 재제출'}).click();
  await page.getByRole('link',{name:'교수',exact:true}).click();await page.getByRole('tab',{name:'최종논문 검토',exact:true}).click();await page.getByRole('button',{name:'제출물 승인',exact:true}).click();
- await page.getByRole('link',{name:'학생',exact:true}).click();await expect(page.getByText('v2',{exact:true})).toBeVisible();await expect(page.getByLabel('다음 할 일').getByRole('heading')).toHaveText('학과 제출');
- await page.getByLabel('데모 사용자').selectOption('student-2');await expect(page.getByText('신도현 교수',{exact:true})).toBeVisible();await expect(page.getByRole('tablist',{name:'전공 선택'})).toHaveCount(0);await expect(page.getByRole('button',{name:'지도 신청 제출'})).toHaveCount(0);
+ await page.getByRole('link',{name:'학생',exact:true}).click();await studentTab(page,'연구계획·논문');await expect(page.getByText('v2',{exact:true})).toBeVisible();await expect(page.getByLabel('다음 할 일').getByRole('heading')).toHaveText('학과 제출');
+ await page.getByLabel('데모 사용자').selectOption('student-2');await studentTab(page,'지도교수');await expect(page.getByText('신도현 교수',{exact:true})).toBeVisible();await expect(page.getByRole('tablist',{name:'전공 선택'})).toHaveCount(0);await expect(page.getByRole('button',{name:'지도 신청 제출'})).toHaveCount(0);
  await page.getByRole('link',{name:'학과 조교',exact:true}).click();await page.getByRole('tab',{name:'학과 학생 검색'}).click();await page.getByLabel('초과학기만').check();await expect(page.getByRole('button',{name:'이준호',exact:false})).toBeVisible();await expect(page.getByRole('button',{name:'김서연',exact:false})).toHaveCount(0);
  await page.getByRole('button',{name:'이준호',exact:false}).click();await expect(page.getByText('읽기 전용',{exact:true})).toBeVisible();
  await noOverflow(page);await page.screenshot({path:info.outputPath('assistant.png'),fullPage:true});

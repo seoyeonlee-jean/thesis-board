@@ -6,7 +6,7 @@ export const colors:Record<string,string>={violet:'bg-violet-100 text-violet-900
 export const colorFor=(d:Department)=>colors[d.color]??'bg-slate-100 text-slate-900 border-slate-300';
 export const dateLabel=(value:string)=>value?new Date(value).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'정보 확인 필요';
 export function Badge({children,className=''}:{children:React.ReactNode;className?:string}){return <span className={'badge border '+className}>{children}</span>;}
-export function Avatar({name}:{name:string}){return <span aria-label={name+' 아바타'} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 font-bold text-indigo-700">{name.slice(0,1)}</span>;}
+export function Avatar({name}:{name:string}){return <span aria-label={name+' 아바타'} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-snu-100 font-bold text-snu">{name.slice(0,1)}</span>;}
 export function FeedbackView({value}:{value?:Feedback}){return value?<div className="mt-3 rounded-xl bg-amber-50 p-3 text-sm"><b>교수 피드백</b>{value.editedAt&&<Badge className="ml-2">수정됨 · {dateLabel(value.editedAt)}</Badge>}<p className="mt-2 whitespace-pre-wrap">{value.text}</p></div>:null;}
 export function FileInput({value,onChange,label='파일 첨부',disabled=false}:{value?:Attachment;onChange:(f?:Attachment)=>void;label?:string;disabled?:boolean}){
  const [error,setError]=useState('');

@@ -1,5 +1,15 @@
 # 2차 명세 수정 기록
 
+## 추가 수정 — SNU Blue 및 학생 업무 탭 (2026-09-22)
+
+- 요청 범위: 서울대학교 파란색 메인 테마, 교수 화면처럼 학생 영역 탭 분리. 다른 기능·승인 규칙·데이터는 변경하지 않았다.
+- 색상 출처: https://identity.snu.ac.kr/color/1 및 해당 페이지의 전용색상값 안내 이미지. SNU Blue / Pantone 2748C / RGB 15,15,112 → #0F0F70. 학교 로고·공식 서비스 표시는 사용하지 않았다.
+- 변경 파일: tailwind.config.ts, app/globals.css, app/page.tsx, components/{student-board,student-tabs,board-shell,ui,meeting-grid,roadmap,admin-board}.tsx, lib/rules.ts, tests/completion.test.ts, e2e/{helpers,board.spec,completion.spec,student-tabs.spec}.ts, README.md.
+- 구현: 공통 버튼·역할 선택·아바타·면담 선택·포커스·강조 배경 색상 통일. 학생 업무 6개 탭, 한 번에 하나의 영역 표시, 전공 선택은 별도 유지. 다음 할 일 CTA·캘린더·알림 링크는 해당 탭으로 연결. 선택 탭 URL 해시 복원, 전공별 초안 보존, 학생 전환 시 로드맵 초기화, 모바일 내부 탭 스크롤 및 키보드 조작.
+- 확인: Vitest 44개(데이터 완결성 포함), 타입 검사 및 빌드, Chromium E2E 16개. 기존 전체 시나리오는 새로운 탭을 실제 클릭하도록 갱신했다. 추가 E2E는 1440px·375px에서 RGB 값, 영역 한 개 표시, 초안 보존/새로고침, 전공 간 캘린더 이동, 키보드 탐색, 단일전공을 검사한다. 두 폭의 캡처도 확인했다.
+- 제안만 남긴 사항: 업무 탭에 미처리 개수 배지, 로컬 저장/공유 범위 안내를 상단에 표시, 처음 방문하는 팀원을 위한 짧은 시연 가이드. 이번에는 추가 구현하지 않았다.
+- 남은 한계: 브라우저별 저장이라 서로 다른 팀원의 진행 데이터가 동기화되지는 않는다. 공개 사이트에 반영하려면 별도 push·배포가 필요하며 이번 수정에서 실행하지 않는다. 발표자료 임시 폴더는 건드리지 않는다.
+
 기준 문서: 사용자가 제공한 codex_revision_spec.md. 이전 AGENTS.md·초안과 충돌하는 역할/승인 규칙은 이번 사용자의 새 명세를 우선한다. 기존 프로젝트와 Next.js 15.5.24 / TypeScript / Tailwind / Zustand / npm을 유지한다.
 
 ## 사이클 1 — 도메인 및 화면 교체
