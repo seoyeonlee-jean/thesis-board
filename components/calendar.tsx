@@ -1,13 +1,13 @@
 "use client";
 import {useState} from 'react';
 import type {BoardState,Student} from '@/lib/types';
-import {noticeMatches,stagesFor} from '@/lib/rules';
+import {deadlinesFor,noticeMatches,stagesFor} from '@/lib/rules';
 import {colorFor,dateLabel} from './ui';
 export function Calendar({state,student,onSelect}:{state:BoardState;student:Student;onSelect:(departmentId:string,target:string)=>void}){
  const depts=state.departments.filter(d=>student.majors.some(m=>m.departmentId===d.id));
  const [view,setView]=useState('month'),[month,setMonth]=useState(()=>depts.flatMap(d=>stagesFor(student,d).map(s=>s.dueDate)).filter(Boolean).sort()[0]?.slice(0,7)??new Date().toISOString().slice(0,7)),[hidden,setHidden]=useState<string[]>([]);
  const all=depts.flatMap(d=>[
-  ...stagesFor(student,d).filter(s=>s.dueDate).map(s=>({id:'stage-'+d.id+s.id,date:s.dueDate,start:s.startDate||s.dueDate,title:s.name,d,target:'step-'+s.id})),
+  ...stagesFor(student,d).flatMap(s=>deadlinesFor(state,student.id,d,s).map(v=>({id:'stage-'+d.id+s.id+v.condition,date:v.deadline,start:s.startDate||v.deadline,title:s.name+(v.condition?' · '+v.condition:''),d,target:'step-'+s.id}))),
   ...state.meetings.filter(m=>m.studentId===student.id&&m.departmentId===d.id&&m.selected).map(m=>({id:m.id,date:m.selected!,start:m.selected!,title:'면담 '+m.status,d,target:'meetings'})),
   ...state.notices.filter(n=>noticeMatches(n,student,d)&&n.eventAt).map(n=>({id:n.id,date:n.eventAt,start:n.eventAt,title:n.title,d,target:'notices'})),
  ]).sort((a,b)=>a.date.localeCompare(b.date));

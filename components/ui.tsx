@@ -2,7 +2,7 @@
 import {useState} from 'react';
 import type {Attachment, Department, Feedback} from '@/lib/types';
 import {FILE_LIMIT} from '@/lib/rules';
-export const colors:Record<string,string>={violet:'bg-violet-100 text-violet-900 border-violet-300',amber:'bg-amber-100 text-amber-900 border-amber-300',sky:'bg-sky-100 text-sky-900 border-sky-300'};
+export const colors:Record<string,string>={emerald:'bg-emerald-100 text-emerald-900 border-emerald-300',violet:'bg-violet-100 text-violet-900 border-violet-300',amber:'bg-amber-100 text-amber-900 border-amber-300',sky:'bg-sky-100 text-sky-900 border-sky-300'};
 export const colorFor=(d:Department)=>colors[d.color]??'bg-slate-100 text-slate-900 border-slate-300';
 export const dateLabel=(value:string)=>value?new Date(value).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'정보 확인 필요';
 export function Badge({children,className=''}:{children:React.ReactNode;className?:string}){return <span className={'badge border '+className}>{children}</span>;}
