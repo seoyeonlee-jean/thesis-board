@@ -17,7 +17,7 @@ test('절차 마지막 추가·삭제·수업형 게시',async({page})=>{
  await page.getByLabel('지도교수 결정 방식').selectOption('course');await expect(page.getByLabel('지도교수 결정 방식').locator('option')).toHaveCount(2);await page.getByRole('button',{name:'절차 게시',exact:true}).click();await page.getByRole('link',{name:'학생',exact:true}).click();await expect(page.getByLabel('전공 로드맵').getByText('지도교수 신청',{exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'지도 신청 제출'})).toHaveCount(0);
 });
 test('전공 탭·요약 이동·색상·달력 필터',async({page})=>{
- await page.goto('/student');await page.getByRole('button',{name:'중어중문학과 전공 선택',exact:true}).click();await expect(page.getByLabel('다음 할 일')).toContainText('논문제출신청·개요 제출');await page.getByLabel('내 전공 요약').getByRole('button',{name:/심리학과/}).click();await expect(page.getByRole('button',{name:'심리학과 전공 선택',exact:true})).toHaveAttribute('aria-pressed','true');
+ await page.goto('/student');await page.getByRole('button',{name:'중어중문학과 전공 선택',exact:true}).click();await expect(page.getByLabel('현재 단계')).toContainText('논문제출신청·개요 제출');await page.getByLabel('내 전공 요약').getByRole('button',{name:/심리학과/}).click();await expect(page.getByRole('button',{name:'심리학과 전공 선택',exact:true})).toHaveAttribute('aria-pressed','true');
  await studentTab(page,'캘린더');const calendar=page.getByLabel('통합 캘린더');await page.getByLabel('캘린더 월').fill('2026-10');const a=await calendar.getByRole('button',{name:'지도교수 신청·승인',exact:true}).evaluate(e=>getComputedStyle(e).backgroundColor);await page.getByLabel('캘린더 월').fill('2026-09');const b=await calendar.getByRole('button',{name:'지도교수 신청·승인',exact:true}).evaluate(e=>getComputedStyle(e).backgroundColor);expect(a).not.toBe(b);
  await calendar.getByRole('checkbox',{name:'중어중문학과'}).uncheck();await expect(calendar.getByRole('button',{name:'지도교수 신청·승인',exact:true})).toHaveCount(0);
 });
@@ -37,7 +37,7 @@ test('교수 면담 그리드 드래그로 연속 시간 선택',async({page})=>
  await expect(start).toHaveAttribute('aria-pressed','true');await expect(end).toHaveAttribute('aria-pressed','true');
 });
 test('요건 누락은 면제가 아닌 정보 확인 필요로 표시',async({page})=>{
- await page.goto('/student');await expect(page.getByLabel('다음 할 일')).toBeVisible();
+ await page.goto('/student');await expect(page.getByLabel('현재 단계')).toBeVisible();
  await page.getByLabel('데모 사용자').selectOption('student-3');await page.getByLabel('데모 사용자').selectOption('student-1');
  await page.evaluate(()=>{const key='thesis-board-v3',saved=JSON.parse(localStorage.getItem(key)!);delete saved.state.departments[0].requirements.primary;localStorage.setItem(key,JSON.stringify(saved));});
  await page.reload();await expect(page.getByRole('alert',{name:''}).filter({hasText:'논문 요건 정보 확인 필요'})).toBeVisible();await expect(page.getByText('심리학과 논문 면제',{exact:true})).toHaveCount(0);
@@ -47,7 +47,7 @@ test('알림이 다른 전공 탭의 상세로 이동',async({page})=>{
  await studentTab(page,'지도교수');await page.getByRole('button',{name:'차현우 교수 선택'}).click();await page.getByLabel('연구 제목',{exact:true}).fill('고전 연구');await page.getByLabel('연구 방향 요약').fill('서사 비교');await page.getByLabel('연구계획 본문').fill('중국 고전 문학 연구');await page.getByRole('button',{name:'지도 신청 제출'}).click();
  await page.getByRole('link',{name:'교수',exact:true}).click();await page.getByRole('tab',{name:'지도 신청',exact:true}).click();await page.getByLabel('데모 사용자').selectOption('prof-chinese');await page.getByRole('button',{name:'신청 승인'}).click();
  await page.getByRole('link',{name:'학생',exact:true}).click();await expect(page.getByRole('button',{name:'심리학과 전공 선택',exact:true})).toHaveAttribute('aria-pressed','true');
- await page.getByLabel('알림',{exact:true}).click();await page.getByLabel('알림 목록').getByRole('link',{name:/지도 신청 승인/}).click();await expect(page.getByRole('button',{name:'중어중문학과 전공 선택',exact:true})).toHaveAttribute('aria-pressed','true');await expect(page.getByLabel('다음 할 일')).toContainText('지도교수 면담·작성');
+ await page.getByLabel('알림',{exact:true}).click();await page.getByLabel('알림 목록').getByRole('link',{name:/지도 신청 승인/}).click();await expect(page.getByRole('button',{name:'중어중문학과 전공 선택',exact:true})).toHaveAttribute('aria-pressed','true');await expect(page.getByLabel('현재 단계')).toContainText('지도교수 면담·작성');
 });
 test('절차 기본 접힘·고정 순서·요약·마감 표시',async({page},info)=>{
  await page.goto('/admin');const items=page.getByLabel('절차 단계 편집').locator(':scope > li');
