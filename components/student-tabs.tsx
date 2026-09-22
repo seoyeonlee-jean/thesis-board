@@ -1,11 +1,11 @@
 "use client";
 export const studentAreas = [
- ['roadmap','로드맵'], ['advisor','지도교수'], ['meetings','면담 일정'],
- ['documents','연구계획·논문'], ['calendar','캘린더'], ['notices','공지'],
+ ['calendar','캘린더'], ['roadmap','로드맵'], ['advisor','지도교수'],
+ ['meetings','면담 일정'], ['documents','연구계획서·논문'], ['notices','공지'],
 ] as const;
 export type StudentArea = typeof studentAreas[number][0];
 export const areaForTarget = (target:string):StudentArea =>
- studentAreas.some(([id])=>id===target)?target as StudentArea:'roadmap';
+ studentAreas.some(([id])=>id===target)?target as StudentArea:target.startsWith('step-')?'roadmap':'calendar';
 
 export function StudentTabs({value,onChange}:{value:StudentArea;onChange:(id:StudentArea)=>void}){
  return <div role="tablist" aria-label="학생 업무" className="flex gap-2 overflow-x-auto rounded-2xl border border-snu-300 bg-snu-100 p-2">
